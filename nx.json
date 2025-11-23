@@ -53,7 +53,7 @@
       "options": {
         "targetName": "test"
       },
-      "exclude": ["apps/argus-e2e/**/*", "apps/hermes-e2e/**/*"]
+      "exclude": ["apps/argus/e2e/**/*", "apps/hermes/e2e/**/*"]
     }
   ],
   "targetDefaults": {

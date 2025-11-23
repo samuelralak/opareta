@@ -4,13 +4,7 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/argus-e2e"
-    },
-    {
       "path": "./apps/argus"
-    },
-    {
-      "path": "./apps/hermes-e2e"
     },
     {
       "path": "./apps/hermes"

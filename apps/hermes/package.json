@@ -79,6 +79,20 @@
         "options": {
           "passWithNoTests": true
         }
+      },
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{workspaceRoot}/apps/hermes/e2e/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/hermes/e2e/jest.config.cts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "@opareta/hermes:build",
+          "@opareta/hermes:serve"
+        ]
       }
     }
   },

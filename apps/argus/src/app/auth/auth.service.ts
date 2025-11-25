@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users';
@@ -16,16 +12,6 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<UserResponseDto> {
-    const existingByPhone = await this.usersService.findByPhoneNumber(dto.phone_number);
-    if (existingByPhone) {
-      throw new ConflictException('Phone number already registered');
-    }
-
-    const existingByEmail = await this.usersService.findByEmail(dto.email);
-    if (existingByEmail) {
-      throw new ConflictException('Email already registered');
-    }
-
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const user = await this.usersService.create({
@@ -44,14 +30,9 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<TokenResponseDto> {
     const user = await this.usersService.findByPhoneNumber(dto.phone_number);
+    const isValid = user && (await bcrypt.compare(dto.password, user.password));
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-
-    if (!isPasswordValid) {
+    if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

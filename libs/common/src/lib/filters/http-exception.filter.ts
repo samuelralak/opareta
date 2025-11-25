@@ -27,6 +27,12 @@ interface ValidationErrorResponse {
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
+
+    // Log the actual error for debugging
+    if (!(exception instanceof HttpException)) {
+      console.error('Unhandled exception:', exception);
+    }
+
     const resolved = this.resolveException(exception);
 
     const errorResponse: ErrorResponse = {

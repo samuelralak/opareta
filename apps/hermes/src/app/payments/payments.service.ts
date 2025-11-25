@@ -26,7 +26,7 @@ export class PaymentsService {
     private readonly configService: ConfigService
   ) {
     const baseUrl = this.configService.get<string>('BASE_URL', 'http://localhost:3001');
-    this.webhookUrl = `${baseUrl}/webhooks/payments`;
+    this.webhookUrl = `${baseUrl}/api/webhooks/payments`;
     this.dummyProvider = new DummyProvider({
       callbackUrl: this.webhookUrl,
       successRate: 0.8,

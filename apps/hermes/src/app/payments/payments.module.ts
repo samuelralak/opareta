@@ -3,11 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from '@opareta/common';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
-import { Payment, PaymentStatusLog, WebhookEvent } from './entities';
+import { Payment, PaymentStatusLog } from './entities';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Payment, PaymentStatusLog, WebhookEvent]),
+    TypeOrmModule.forFeature([Payment, PaymentStatusLog]),
     CommonModule,
   ],
   controllers: [PaymentsController],

@@ -4,8 +4,6 @@ import { CommonModule } from '@opareta/common';
 import { DatabaseModule, databaseConfig } from './database';
 import { PaymentsModule } from './payments/payments.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -19,7 +17,5 @@ import { AppService } from './app.service';
     PaymentsModule,
     WebhooksModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

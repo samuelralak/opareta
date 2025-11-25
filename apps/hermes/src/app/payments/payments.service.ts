@@ -1,26 +1,11 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { DummyProvider } from '@opareta/dummy-provider';
 import { ConfigService } from '@nestjs/config';
-import {
-  Payment,
-  PaymentStatus,
-  PaymentStatusLog,
-  WebhookEvent,
-  type StatusTrigger,
-} from './entities';
-import {
-  type CreatePaymentInput,
-  type UpdatePaymentStatusInput,
-  type WebhookPayloadInput,
-} from './dto';
+import { Payment, PaymentStatus, PaymentStatusLog, type StatusTrigger } from './entities';
+import { type CreatePaymentInput, type UpdatePaymentStatusInput } from './dto';
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.INITIATED]: [PaymentStatus.PENDING, PaymentStatus.FAILED],
@@ -32,32 +17,27 @@ const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
 @Injectable()
 export class PaymentsService {
   private readonly dummyProvider: DummyProvider;
+  private readonly webhookUrl: string;
 
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-    @InjectRepository(WebhookEvent)
-    private readonly webhookEventRepository: Repository<WebhookEvent>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService
   ) {
     const baseUrl = this.configService.get<string>('BASE_URL', 'http://localhost:3001');
+    this.webhookUrl = `${baseUrl}/webhooks/payments`;
     this.dummyProvider = new DummyProvider({
-      callbackUrl: `${baseUrl}/payments/webhook`,
+      callbackUrl: this.webhookUrl,
       successRate: 0.8,
       minDelayMs: 2000,
       maxDelayMs: 5000,
     });
   }
 
-  async createPayment(
-    userId: string,
-    input: CreatePaymentInput
-  ): Promise<Payment> {
-    const reference = `PAY-${randomUUID().slice(0, 8).toUpperCase()}`;
-
+  async createPayment(userId: string, input: CreatePaymentInput): Promise<Payment> {
     const payment = this.paymentRepository.create({
-      reference,
+      reference: this.generateReference(),
       user_id: userId,
       amount: input.amount,
       currency: input.currency,
@@ -74,24 +54,16 @@ export class PaymentsService {
       amount: payment.amount,
       currency: payment.currency,
       phone_number: payment.customer_phone,
-      callback_url: `${this.configService.get<string>('BASE_URL', 'http://localhost:3001')}/payments/webhook`,
+      callback_url: this.webhookUrl,
     });
 
     if (providerResponse.success) {
-      await this.transitionStatus(
-        payment,
-        PaymentStatus.PENDING,
-        'SYSTEM',
-        'Payment sent to provider'
-      );
+      await this.transitionStatus(payment, PaymentStatus.PENDING, 'SYSTEM', 'Payment sent to provider');
       payment.provider_reference = providerResponse.provider_reference;
       await this.paymentRepository.save(payment);
     }
 
-    return this.paymentRepository.findOneOrFail({
-      where: { id: payment.id },
-      relations: ['status_logs'],
-    });
+    return this.findPaymentWithLogs(payment.id);
   }
 
   async getPaymentByReference(reference: string): Promise<Payment> {
@@ -107,79 +79,13 @@ export class PaymentsService {
     return payment;
   }
 
-  async updatePaymentStatus(
-    reference: string,
-    input: UpdatePaymentStatusInput
-  ): Promise<Payment> {
+  async updatePaymentStatus(reference: string, input: UpdatePaymentStatusInput): Promise<Payment> {
     const payment = await this.getPaymentByReference(reference);
     await this.transitionStatus(payment, input.status, 'ADMIN', input.reason);
-    return this.paymentRepository.findOneOrFail({
-      where: { id: payment.id },
-      relations: ['status_logs'],
-    });
+    return this.findPaymentWithLogs(payment.id);
   }
 
-  async processWebhook(payload: WebhookPayloadInput): Promise<void> {
-    const existingEvent = await this.webhookEventRepository.findOne({
-      where: { webhook_id: payload.webhook_id },
-    });
-
-    if (existingEvent) {
-      if (existingEvent.processed) {
-        return;
-      }
-      throw new ConflictException('Webhook is currently being processed');
-    }
-
-    const webhookEvent = this.webhookEventRepository.create({
-      webhook_id: payload.webhook_id,
-      payment_reference: payload.payment_reference,
-      payload: payload as unknown as Record<string, unknown>,
-      processed: false,
-    });
-
-    await this.webhookEventRepository.save(webhookEvent);
-
-    try {
-      const payment = await this.paymentRepository.findOne({
-        where: { reference: payload.payment_reference },
-      });
-
-      if (!payment) {
-        throw new NotFoundException(
-          `Payment with reference ${payload.payment_reference} not found`
-        );
-      }
-
-      payment.provider_transaction_id = payload.provider_transaction_id;
-
-      const newStatus =
-        payload.status === 'SUCCESS'
-          ? PaymentStatus.SUCCESS
-          : PaymentStatus.FAILED;
-
-      if (newStatus === PaymentStatus.FAILED) {
-        payment.failure_reason = 'Payment failed at provider';
-      }
-
-      await this.paymentRepository.save(payment);
-      await this.transitionStatus(
-        payment,
-        newStatus,
-        'WEBHOOK',
-        `Provider webhook: ${payload.status}`
-      );
-
-      webhookEvent.processed = true;
-      await this.webhookEventRepository.save(webhookEvent);
-    } catch (error) {
-      webhookEvent.processed = false;
-      await this.webhookEventRepository.save(webhookEvent);
-      throw error;
-    }
-  }
-
-  private async transitionStatus(
+  async transitionStatus(
     payment: Payment,
     newStatus: PaymentStatus,
     triggeredBy: StatusTrigger,
@@ -188,9 +94,7 @@ export class PaymentsService {
     const validNextStatuses = VALID_TRANSITIONS[payment.status];
 
     if (!validNextStatuses.includes(newStatus)) {
-      throw new BadRequestException(
-        `Invalid status transition from ${payment.status} to ${newStatus}`
-      );
+      throw new BadRequestException(`Invalid status transition from ${payment.status} to ${newStatus}`);
     }
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
@@ -198,16 +102,24 @@ export class PaymentsService {
         payment_id: payment.id,
         from_status: payment.status,
         to_status: newStatus,
-        reason: reason,
+        reason,
         triggered_by: triggeredBy,
       });
 
       await manager.save(PaymentStatusLog, statusLog);
-
-      await manager.update(Payment, payment.id, {
-        status: newStatus,
-      });
+      await manager.update(Payment, payment.id, { status: newStatus });
       payment.status = newStatus;
+    });
+  }
+
+  private generateReference(): string {
+    return `PAY-${randomUUID().slice(0, 8).toUpperCase()}`;
+  }
+
+  private findPaymentWithLogs(id: string): Promise<Payment> {
+    return this.paymentRepository.findOneOrFail({
+      where: { id },
+      relations: ['status_logs'],
     });
   }
 }

@@ -1,27 +1,8 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Param,
-  Body,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Post, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwksAuthGuard, CurrentUser, type JwtPayload } from '@opareta/common';
 import { PaymentsService } from './payments.service';
-import {
-  CreatePaymentDto,
-  UpdatePaymentStatusDto,
-  WebhookPayloadDto,
-} from './dto';
+import { CreatePaymentDto, UpdatePaymentStatusDto } from './dto';
 
 @ApiTags('payments')
 @Controller('payments')
@@ -66,15 +47,5 @@ export class PaymentsController {
     @Body() updateStatusDto: UpdatePaymentStatusDto
   ) {
     return this.paymentsService.updatePaymentStatus(reference, updateStatusDto);
-  }
-
-  @Post('webhook')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Handle payment provider webhook' })
-  @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  @ApiResponse({ status: 409, description: 'Duplicate webhook' })
-  async handleWebhook(@Body() webhookPayload: WebhookPayloadDto) {
-    await this.paymentsService.processWebhook(webhookPayload);
-    return { received: true };
   }
 }

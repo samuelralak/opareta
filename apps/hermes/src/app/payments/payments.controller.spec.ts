@@ -1,14 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { JwksAuthGuard } from '@opareta/common';
-import {
-  Payment,
-  PaymentStatus,
-  PaymentCurrency,
-  PaymentMethod,
-} from './entities';
+import { Payment, PaymentStatus, PaymentCurrency, PaymentMethod } from './entities';
 import type { JwtPayload } from '@opareta/common';
 
 describe('PaymentsController', () => {
@@ -54,7 +49,6 @@ describe('PaymentsController', () => {
             createPayment: jest.fn(),
             getPaymentByReference: jest.fn(),
             updatePaymentStatus: jest.fn(),
-            processWebhook: jest.fn(),
           },
         },
       ],
@@ -167,48 +161,6 @@ describe('PaymentsController', () => {
     });
   });
 
-  describe('handleWebhook', () => {
-    const webhookPayload = {
-      webhook_id: 'WH-123',
-      payment_reference: 'PAY-ABC12345',
-      status: 'SUCCESS' as const,
-      provider_transaction_id: 'TXN-456',
-      timestamp: '2025-01-01T00:00:00.000Z',
-    };
-
-    it('should process webhook and return received: true', async () => {
-      paymentsService.processWebhook.mockResolvedValue();
-
-      const result = await controller.handleWebhook(webhookPayload);
-
-      expect(paymentsService.processWebhook).toHaveBeenCalledWith(webhookPayload);
-      expect(result).toEqual({ received: true });
-    });
-
-    it('should throw ConflictException for duplicate webhook', async () => {
-      paymentsService.processWebhook.mockRejectedValue(
-        new ConflictException('Webhook is currently being processed')
-      );
-
-      await expect(controller.handleWebhook(webhookPayload)).rejects.toThrow(
-        ConflictException
-      );
-    });
-
-    it('should throw NotFoundException when payment is not found', async () => {
-      paymentsService.processWebhook.mockRejectedValue(
-        new NotFoundException('Payment with reference PAY-NOTFOUND not found')
-      );
-
-      await expect(
-        controller.handleWebhook({
-          ...webhookPayload,
-          payment_reference: 'PAY-NOTFOUND',
-        })
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
-
   describe('route decorators', () => {
     it('should have POST decorator on createPayment', () => {
       const metadata = Reflect.getMetadata('method', controller.createPayment);
@@ -222,11 +174,6 @@ describe('PaymentsController', () => {
 
     it('should have PATCH decorator on updatePaymentStatus', () => {
       const metadata = Reflect.getMetadata('method', controller.updatePaymentStatus);
-      expect(metadata).toBeDefined();
-    });
-
-    it('should have POST decorator on handleWebhook', () => {
-      const metadata = Reflect.getMetadata('method', controller.handleWebhook);
       expect(metadata).toBeDefined();
     });
   });

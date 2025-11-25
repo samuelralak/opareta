@@ -2,7 +2,14 @@
   "name": "@opareta/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "migration:generate:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:generate src/app/database/migrations/$npm_config_name -d src/app/database/data-source.ts",
+    "migration:run:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:run -d src/app/database/data-source.ts",
+    "migration:revert:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:revert -d src/app/database/data-source.ts",
+    "migration:generate:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:generate src/app/database/migrations/$npm_config_name -d src/app/database/data-source.ts",
+    "migration:run:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:run -d src/app/database/data-source.ts",
+    "migration:revert:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:revert -d src/app/database/data-source.ts"
+  },
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -47,6 +54,7 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
     "axios": "^1.6.0",
+    "dotenv": "^17.2.3",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",

@@ -22,6 +22,7 @@ import { migrations } from './migrations';
           ...config,
           autoLoadEntities: true,
           migrations,
+          migrationsRun: true,
         };
       },
     }),

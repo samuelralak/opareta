@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { RedisCacheModule } from '@opareta/common';
 import { UsersModule } from '../users';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -13,6 +14,7 @@ import { AccessToken } from './entities';
 @Module({
   imports: [
     UsersModule,
+    RedisCacheModule.forRoot(),
     TypeOrmModule.forFeature([AccessToken]),
     JwtModule.registerAsync({
       inject: [ConfigService],

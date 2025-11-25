@@ -200,7 +200,7 @@ export class PaymentsService {
     await queryRunner.startTransaction();
 
     try {
-      const statusLog = this.statusLogRepository.create({
+      const statusLog = queryRunner.manager.create(PaymentStatusLog, {
         payment_id: payment.id,
         from_status: payment.status,
         to_status: newStatus,
@@ -208,10 +208,12 @@ export class PaymentsService {
         triggered_by: triggeredBy,
       });
 
-      await queryRunner.manager.save(statusLog);
+      await queryRunner.manager.save(PaymentStatusLog, statusLog);
 
+      await queryRunner.manager.update(Payment, payment.id, {
+        status: newStatus,
+      });
       payment.status = newStatus;
-      await queryRunner.manager.save(payment);
 
       await queryRunner.commitTransaction();
     } catch (error) {

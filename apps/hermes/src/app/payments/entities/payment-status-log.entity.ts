@@ -6,9 +6,8 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Payment, PaymentStatus } from './payment.entity';
-
-export type StatusTrigger = 'SYSTEM' | 'WEBHOOK' | 'ADMIN';
+import { PaymentStatus } from './payment.types';
+import type { Payment } from './payment.entity';
 
 @Entity('payment_status_logs')
 export class PaymentStatusLog {
@@ -18,7 +17,7 @@ export class PaymentStatusLog {
   @Column('uuid')
   payment_id!: string;
 
-  @ManyToOne(() => Payment, (payment) => payment.status_logs, {
+  @ManyToOne('Payment', 'status_logs', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'payment_id' })

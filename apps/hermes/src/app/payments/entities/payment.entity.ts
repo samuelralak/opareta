@@ -7,23 +7,8 @@ import {
   OneToMany,
   Index,
 } from 'typeorm';
-import { PaymentStatusLog } from './payment-status-log.entity';
-
-export enum PaymentStatus {
-  INITIATED = 'INITIATED',
-  PENDING = 'PENDING',
-  SUCCESS = 'SUCCESS',
-  FAILED = 'FAILED',
-}
-
-export enum PaymentCurrency {
-  UGX = 'UGX',
-  USD = 'USD',
-}
-
-export enum PaymentMethod {
-  MOBILE_MONEY = 'MOBILE_MONEY',
-}
+import { PaymentStatus, PaymentCurrency, PaymentMethod } from './payment.types';
+import type { PaymentStatusLog } from './payment-status-log.entity';
 
 @Entity('payments')
 export class Payment {
@@ -74,6 +59,6 @@ export class Payment {
   @UpdateDateColumn()
   updated_at!: Date;
 
-  @OneToMany(() => PaymentStatusLog, (log) => log.payment)
+  @OneToMany('PaymentStatusLog', 'payment')
   status_logs!: PaymentStatusLog[];
 }

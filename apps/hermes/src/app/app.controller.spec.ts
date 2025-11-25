@@ -1,15 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { JwksAuthGuard } from '@opareta/common';
 
 describe('AppController', () => {
   let app: TestingModule;
+
+  const mockJwksAuthGuard = {
+    canActivate: jest.fn().mockReturnValue(true),
+  };
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
       controllers: [AppController],
       providers: [AppService],
-    }).compile();
+    })
+      .overrideGuard(JwksAuthGuard)
+      .useValue(mockJwksAuthGuard)
+      .compile();
   });
 
   describe('getData', () => {

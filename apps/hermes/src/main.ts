@@ -1,13 +1,21 @@
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe } from 'nestjs-zod';
-import { HttpExceptionFilter } from '@opareta/common';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { HttpExceptionFilter, createBootstrapLogger } from '@opareta/common';
 import { AppModule } from './app/app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const bootstrapLogger = createBootstrapLogger({ appName: 'Hermes' });
+
+  const app = await NestFactory.create(AppModule, {
+    logger: bootstrapLogger,
+  });
+
+  const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
+  app.useLogger(logger);
+
   const config = app.get(ConfigService);
 
   const port = config.get<number>('PORT', 3001);
@@ -27,8 +35,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(port);
-  Logger.log(`Application running on: http://localhost:${port}/api`);
-  Logger.log(`Swagger docs available at: http://localhost:${port}/api/docs`);
+  logger.log(`Application running on: http://localhost:${port}/api`);
+  logger.log(`Swagger docs available at: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

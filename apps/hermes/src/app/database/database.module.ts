@@ -23,6 +23,7 @@ import { migrations } from './migrations';
           autoLoadEntities: true,
           migrations,
           migrationsRun: true,
+          logging: process.env.NODE_ENV !== 'production',
         };
       },
     }),

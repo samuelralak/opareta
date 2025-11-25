@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { CommonModule } from '@opareta/common';
+import { CommonModule, LoggerModule, HttpLoggerMiddleware } from '@opareta/common';
 import { DatabaseModule, databaseConfig } from './database';
 import { AuthModule } from './auth';
 
@@ -11,9 +11,17 @@ import { AuthModule } from './auth';
       isGlobal: true,
       load: [databaseConfig],
     }),
+    LoggerModule.forRoot({
+      appName: 'Argus',
+      logLevel: process.env.LOG_LEVEL || 'info',
+    }),
     DatabaseModule,
     CommonModule,
     AuthModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(HttpLoggerMiddleware).forRoutes('*');
+  }
+}

@@ -1,13 +1,21 @@
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { AppModule } from './app/app.module';
-import { HttpExceptionFilter } from '@opareta/common';
+import { HttpExceptionFilter, createBootstrapLogger } from '@opareta/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const bootstrapLogger = createBootstrapLogger({ appName: 'Argus' });
+
+  const app = await NestFactory.create(AppModule, {
+    logger: bootstrapLogger,
+  });
+
+  const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
+  app.useLogger(logger);
+
   const config = app.get(ConfigService);
 
   app.useGlobalPipes(new ZodValidationPipe());
@@ -27,8 +35,8 @@ async function bootstrap() {
 
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
-  Logger.log(`Application running on: http://localhost:${port}/api`);
-  Logger.log(`Swagger docs available at: http://localhost:${port}/api/docs`);
+  logger.log(`Application running on: http://localhost:${port}/api`);
+  logger.log(`Swagger docs available at: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

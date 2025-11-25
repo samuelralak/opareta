@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, EntityManager } from 'typeorm';
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import {
@@ -9,28 +9,19 @@ import {
   PaymentStatus,
   PaymentCurrency,
   PaymentMethod,
-  PaymentStatusLog,
   WebhookEvent,
 } from './entities';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
   let paymentRepository: jest.Mocked<Repository<Payment>>;
-  let statusLogRepository: jest.Mocked<Repository<PaymentStatusLog>>;
   let webhookEventRepository: jest.Mocked<Repository<WebhookEvent>>;
   let dataSource: jest.Mocked<DataSource>;
 
-  const mockQueryRunner = {
-    connect: jest.fn(),
-    startTransaction: jest.fn(),
-    commitTransaction: jest.fn(),
-    rollbackTransaction: jest.fn(),
-    release: jest.fn(),
-    manager: {
-      create: jest.fn(),
-      save: jest.fn(),
-      update: jest.fn(),
-    },
+  const mockTransactionManager = {
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockPayment: Payment = {
@@ -65,13 +56,6 @@ describe('PaymentsService', () => {
           },
         },
         {
-          provide: getRepositoryToken(PaymentStatusLog),
-          useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-          },
-        },
-        {
           provide: getRepositoryToken(WebhookEvent),
           useValue: {
             create: jest.fn(),
@@ -82,7 +66,9 @@ describe('PaymentsService', () => {
         {
           provide: DataSource,
           useValue: {
-            createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+            transaction: jest.fn((callback: (manager: EntityManager) => Promise<void>) =>
+              callback(mockTransactionManager as unknown as EntityManager)
+            ),
           },
         },
         {
@@ -96,7 +82,6 @@ describe('PaymentsService', () => {
 
     service = module.get<PaymentsService>(PaymentsService);
     paymentRepository = module.get(getRepositoryToken(Payment));
-    statusLogRepository = module.get(getRepositoryToken(PaymentStatusLog));
     webhookEventRepository = module.get(getRepositoryToken(WebhookEvent));
     dataSource = module.get(DataSource);
 
@@ -123,9 +108,9 @@ describe('PaymentsService', () => {
       paymentRepository.create.mockReturnValue(savedPayment);
       paymentRepository.save.mockResolvedValue(savedPayment);
       paymentRepository.findOneOrFail.mockResolvedValue(paymentWithLogs);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockResolvedValue({});
-      mockQueryRunner.manager.update.mockResolvedValue({});
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockResolvedValue({});
+      mockTransactionManager.update.mockResolvedValue({});
 
       const result = await service.createPayment('user-uuid-123', createPaymentInput);
 
@@ -146,9 +131,9 @@ describe('PaymentsService', () => {
       paymentRepository.create.mockReturnValue(savedPayment);
       paymentRepository.save.mockResolvedValue(savedPayment);
       paymentRepository.findOneOrFail.mockResolvedValue(savedPayment);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockResolvedValue({});
-      mockQueryRunner.manager.update.mockResolvedValue({});
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockResolvedValue({});
+      mockTransactionManager.update.mockResolvedValue({});
 
       await service.createPayment('user-uuid-123', createPaymentInput);
 
@@ -193,16 +178,17 @@ describe('PaymentsService', () => {
 
       paymentRepository.findOne.mockResolvedValue(pendingPayment);
       paymentRepository.findOneOrFail.mockResolvedValue(updatedPayment);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockResolvedValue({});
-      mockQueryRunner.manager.update.mockResolvedValue({});
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockResolvedValue({});
+      mockTransactionManager.update.mockResolvedValue({});
 
       const result = await service.updatePaymentStatus('PAY-ABC12345', {
         status: PaymentStatus.SUCCESS,
         reason: 'Manual approval',
       });
 
-      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+      expect(dataSource.transaction).toHaveBeenCalled();
+      expect(mockTransactionManager.update).toHaveBeenCalledWith(
         Payment,
         pendingPayment.id,
         { status: PaymentStatus.SUCCESS }
@@ -245,10 +231,12 @@ describe('PaymentsService', () => {
     it('should process a new webhook successfully', async () => {
       const pendingPayment = { ...mockPayment, status: PaymentStatus.PENDING };
       const webhookEvent = {
+        id: 'webhook-event-uuid-123',
         webhook_id: 'WH-123',
         payment_reference: 'PAY-ABC12345',
         payload: webhookPayload,
         processed: false,
+        received_at: new Date(),
       };
 
       webhookEventRepository.findOne.mockResolvedValue(null);
@@ -256,9 +244,9 @@ describe('PaymentsService', () => {
       webhookEventRepository.save.mockResolvedValue(webhookEvent as WebhookEvent);
       paymentRepository.findOne.mockResolvedValue(pendingPayment);
       paymentRepository.save.mockResolvedValue(pendingPayment);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockResolvedValue({});
-      mockQueryRunner.manager.update.mockResolvedValue({});
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockResolvedValue({});
+      mockTransactionManager.update.mockResolvedValue({});
 
       await service.processWebhook(webhookPayload);
 
@@ -304,10 +292,12 @@ describe('PaymentsService', () => {
 
     it('should throw NotFoundException when payment is not found', async () => {
       const webhookEvent = {
+        id: 'webhook-event-uuid-123',
         webhook_id: 'WH-123',
         payment_reference: 'PAY-NOTFOUND',
         payload: webhookPayload,
         processed: false,
+        received_at: new Date(),
       };
 
       webhookEventRepository.findOne.mockResolvedValue(null);
@@ -323,10 +313,12 @@ describe('PaymentsService', () => {
     it('should set failure_reason when webhook status is FAILED', async () => {
       const pendingPayment = { ...mockPayment, status: PaymentStatus.PENDING };
       const webhookEvent = {
+        id: 'webhook-event-uuid-123',
         webhook_id: 'WH-123',
         payment_reference: 'PAY-ABC12345',
         payload: { ...webhookPayload, status: 'FAILED' },
         processed: false,
+        received_at: new Date(),
       };
 
       webhookEventRepository.findOne.mockResolvedValue(null);
@@ -334,9 +326,9 @@ describe('PaymentsService', () => {
       webhookEventRepository.save.mockResolvedValue(webhookEvent as WebhookEvent);
       paymentRepository.findOne.mockResolvedValue(pendingPayment);
       paymentRepository.save.mockResolvedValue(pendingPayment);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockResolvedValue({});
-      mockQueryRunner.manager.update.mockResolvedValue({});
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockResolvedValue({});
+      mockTransactionManager.update.mockResolvedValue({});
 
       await service.processWebhook({ ...webhookPayload, status: 'FAILED' });
 
@@ -369,9 +361,9 @@ describe('PaymentsService', () => {
 
         if (valid) {
           paymentRepository.findOneOrFail.mockResolvedValue({ ...payment, status: to });
-          mockQueryRunner.manager.create.mockReturnValue({});
-          mockQueryRunner.manager.save.mockResolvedValue({});
-          mockQueryRunner.manager.update.mockResolvedValue({});
+          mockTransactionManager.create.mockReturnValue({});
+          mockTransactionManager.save.mockResolvedValue({});
+          mockTransactionManager.update.mockResolvedValue({});
 
           const result = await service.updatePaymentStatus('PAY-ABC12345', { status: to });
           expect(result.status).toBe(to);
@@ -385,35 +377,32 @@ describe('PaymentsService', () => {
   });
 
   describe('transaction handling', () => {
-    it('should rollback transaction on error', async () => {
+    it('should use callback-style transaction', async () => {
       const pendingPayment = { ...mockPayment, status: PaymentStatus.PENDING };
       paymentRepository.findOne.mockResolvedValue(pendingPayment);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockRejectedValue(new Error('Database error'));
+      paymentRepository.findOneOrFail.mockResolvedValue(pendingPayment);
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockResolvedValue({});
+      mockTransactionManager.update.mockResolvedValue({});
+
+      await service.updatePaymentStatus('PAY-ABC12345', {
+        status: PaymentStatus.SUCCESS,
+      });
+
+      expect(dataSource.transaction).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('should propagate errors from transaction callback', async () => {
+      const pendingPayment = { ...mockPayment, status: PaymentStatus.PENDING };
+      paymentRepository.findOne.mockResolvedValue(pendingPayment);
+      mockTransactionManager.create.mockReturnValue({});
+      mockTransactionManager.save.mockRejectedValue(new Error('Database error'));
 
       await expect(
         service.updatePaymentStatus('PAY-ABC12345', {
           status: PaymentStatus.SUCCESS,
         })
       ).rejects.toThrow('Database error');
-
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
-    });
-
-    it('should always release query runner', async () => {
-      const pendingPayment = { ...mockPayment, status: PaymentStatus.PENDING };
-      paymentRepository.findOne.mockResolvedValue(pendingPayment);
-      paymentRepository.findOneOrFail.mockResolvedValue(pendingPayment);
-      mockQueryRunner.manager.create.mockReturnValue({});
-      mockQueryRunner.manager.save.mockResolvedValue({});
-      mockQueryRunner.manager.update.mockResolvedValue({});
-
-      await service.updatePaymentStatus('PAY-ABC12345', {
-        status: PaymentStatus.SUCCESS,
-      });
-
-      expect(mockQueryRunner.release).toHaveBeenCalled();
     });
   });
 });

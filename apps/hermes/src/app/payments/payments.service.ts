@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { DummyProvider } from '@opareta/dummy-provider';
 import { ConfigService } from '@nestjs/config';
@@ -36,8 +36,6 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-    @InjectRepository(PaymentStatusLog)
-    private readonly statusLogRepository: Repository<PaymentStatusLog>,
     @InjectRepository(WebhookEvent)
     private readonly webhookEventRepository: Repository<WebhookEvent>,
     private readonly dataSource: DataSource,
@@ -195,12 +193,8 @@ export class PaymentsService {
       );
     }
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      const statusLog = queryRunner.manager.create(PaymentStatusLog, {
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      const statusLog = manager.create(PaymentStatusLog, {
         payment_id: payment.id,
         from_status: payment.status,
         to_status: newStatus,
@@ -208,19 +202,12 @@ export class PaymentsService {
         triggered_by: triggeredBy,
       });
 
-      await queryRunner.manager.save(PaymentStatusLog, statusLog);
+      await manager.save(PaymentStatusLog, statusLog);
 
-      await queryRunner.manager.update(Payment, payment.id, {
+      await manager.update(Payment, payment.id, {
         status: newStatus,
       });
       payment.status = newStatus;
-
-      await queryRunner.commitTransaction();
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 }

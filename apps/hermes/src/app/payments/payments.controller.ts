@@ -1,0 +1,80 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwksAuthGuard, CurrentUser, type JwtPayload } from '@opareta/common';
+import { PaymentsService } from './payments.service';
+import {
+  CreatePaymentDto,
+  UpdatePaymentStatusDto,
+  WebhookPayloadDto,
+} from './dto';
+
+@ApiTags('payments')
+@Controller('payments')
+export class PaymentsController {
+  constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Post()
+  @UseGuards(JwksAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Initiate a new payment' })
+  @ApiResponse({ status: 201, description: 'Payment initiated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createPayment(
+    @CurrentUser() user: JwtPayload,
+    @Body() createPaymentDto: CreatePaymentDto
+  ) {
+    return this.paymentsService.createPayment(user.sub, createPaymentDto);
+  }
+
+  @Get(':reference')
+  @UseGuards(JwksAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get payment by reference' })
+  @ApiResponse({ status: 200, description: 'Payment found' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getPayment(@Param('reference') reference: string) {
+    return this.paymentsService.getPaymentByReference(reference);
+  }
+
+  @Patch(':reference/status')
+  @UseGuards(JwksAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update payment status (admin)' })
+  @ApiResponse({ status: 200, description: 'Payment status updated' })
+  @ApiResponse({ status: 400, description: 'Invalid status transition' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updatePaymentStatus(
+    @Param('reference') reference: string,
+    @Body() updateStatusDto: UpdatePaymentStatusDto
+  ) {
+    return this.paymentsService.updatePaymentStatus(reference, updateStatusDto);
+  }
+
+  @Post('webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Handle payment provider webhook' })
+  @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
+  @ApiResponse({ status: 409, description: 'Duplicate webhook' })
+  async handleWebhook(@Body() webhookPayload: WebhookPayloadDto) {
+    await this.paymentsService.processWebhook(webhookPayload);
+    return { received: true };
+  }
+}

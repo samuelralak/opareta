@@ -1,0 +1,40 @@
+{
+  "name": "@opareta/dummy-provider",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@opareta/source": "./src/index.ts",
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "nx": {
+    "name": "dummy-provider",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:tsc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "dist/libs/dummy-provider",
+          "tsConfig": "libs/dummy-provider/tsconfig.lib.json",
+          "packageJson": "libs/dummy-provider/package.json",
+          "main": "libs/dummy-provider/src/index.ts",
+          "assets": [
+            "libs/dummy-provider/*.md"
+          ]
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}

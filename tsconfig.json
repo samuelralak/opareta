@@ -11,6 +11,9 @@
     },
     {
       "path": "./libs/common"
+    },
+    {
+      "path": "./libs/dummy-provider"
     }
   ]
 }

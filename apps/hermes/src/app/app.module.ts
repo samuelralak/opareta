@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from '@opareta/common';
 import { DatabaseModule, databaseConfig } from './database';
+import { PaymentsModule } from './payments/payments.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -14,6 +15,7 @@ import { AppService } from './app.service';
     }),
     DatabaseModule,
     CommonModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

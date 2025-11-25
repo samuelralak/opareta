@@ -12,7 +12,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwksAuthGuard, CurrentUser, JwtPayload } from '@opareta/common';
+import { JwksAuthGuard, CurrentUser, type JwtPayload } from '@opareta/common';
 import { UsersService } from './users.service';
 import { CreateUserDto, UserResponseDto } from './dto';
 

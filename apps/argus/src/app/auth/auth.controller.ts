@@ -7,7 +7,6 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,7 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { JwksAuthGuard } from '@opareta/common';
+import { JwksAuthGuard, CurrentUser, JwtPayload } from '@opareta/common';
 import {
   RegisterDto,
   LoginDto,
@@ -66,8 +65,8 @@ export class AuthController {
     type: TokenPayloadDto,
   })
   @ApiResponse({ status: 401, description: 'Invalid or expired token' })
-  async verify(@Request() req: { user: TokenPayloadDto }): Promise<TokenPayloadDto> {
-    return req.user;
+  async verify(@CurrentUser() user: JwtPayload): Promise<JwtPayload> {
+    return user;
   }
 
   @Post('logout')

@@ -9,6 +9,7 @@ import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
 import { TokenCacheService } from '../cache';
+import { JwtPayload } from '../types';
 
 @Injectable()
 export class JwksAuthGuard implements CanActivate {
@@ -50,7 +51,7 @@ export class JwksAuthGuard implements CanActivate {
         throw new UnauthorizedException('Token has been invalidated');
       }
 
-      (request as Request & { user: unknown }).user = payload;
+      (request as Request & { user: JwtPayload }).user = payload as JwtPayload;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }

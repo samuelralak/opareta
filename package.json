@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "migration:create:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:create src/app/database/migrations/$npm_config_name",
     "migration:generate:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:generate src/app/database/migrations/$npm_config_name -d src/app/database/data-source.ts",
     "migration:run:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:run -d src/app/database/data-source.ts",
     "migration:revert:argus": "cd apps/argus && npx typeorm-ts-node-commonjs migration:revert -d src/app/database/data-source.ts",
+    "migration:create:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:create src/app/database/migrations/$npm_config_name",
     "migration:generate:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:generate src/app/database/migrations/$npm_config_name -d src/app/database/data-source.ts",
     "migration:run:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:run -d src/app/database/data-source.ts",
     "migration:revert:hermes": "cd apps/hermes && npx typeorm-ts-node-commonjs migration:revert -d src/app/database/data-source.ts"

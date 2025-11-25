@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { createDatabase } from 'typeorm-extension';
 import { DataSourceOptions } from 'typeorm';
+import { migrations } from './migrations';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DataSourceOptions } from 'typeorm';
         return {
           ...config,
           autoLoadEntities: true,
+          migrations,
         };
       },
     }),

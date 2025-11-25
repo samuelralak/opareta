@@ -52,7 +52,10 @@ export class JwksAuthGuard implements CanActivate {
       }
 
       (request as Request & { user: JwtPayload }).user = payload as JwtPayload;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid or expired token');
     }
 

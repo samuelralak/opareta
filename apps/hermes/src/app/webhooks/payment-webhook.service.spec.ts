@@ -4,7 +4,8 @@ import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { PaymentWebhookService } from './payment-webhook.service';
 import { PaymentsService } from '../payments/payments.service';
-import { Payment, PaymentStatus, PaymentCurrency, PaymentMethod, WebhookEvent } from '../payments/entities';
+import { Payment, PaymentStatus, PaymentCurrency, PaymentMethod } from '../payments/entities';
+import { WebhookEvent } from './entities';
 
 describe('PaymentWebhookService', () => {
   let service: PaymentWebhookService;

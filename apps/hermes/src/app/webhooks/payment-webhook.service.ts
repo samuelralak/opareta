@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Payment, PaymentStatus, WebhookEvent } from '../payments/entities';
-import { type WebhookPayloadInput } from '../payments/dto';
+import { Payment, PaymentStatus } from '../payments/entities';
 import { PaymentsService } from '../payments/payments.service';
+import { WebhookEvent } from './entities';
+import { type WebhookPayloadInput } from './dto';
 
 const WEBHOOK_STATUS_MAP: Record<string, PaymentStatus> = {
   SUCCESS: PaymentStatus.SUCCESS,

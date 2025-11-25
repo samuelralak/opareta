@@ -1,7 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PaymentWebhookService } from './payment-webhook.service';
-import { WebhookPayloadDto } from '../payments/dto';
+import { WebhookPayloadDto } from './dto';
 
 @ApiTags('webhooks')
 @Controller('webhooks')

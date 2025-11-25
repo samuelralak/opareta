@@ -9,11 +9,6 @@ export {
   type UpdatePaymentStatusInput,
 } from './update-payment-status.dto';
 export {
-  WebhookPayloadDto,
-  WebhookPayloadSchema,
-  type WebhookPayloadInput,
-} from './webhook-payload.dto';
-export {
   PaymentResponseDto,
   PaymentResponseSchema,
   PaymentStatusLogResponseSchema,

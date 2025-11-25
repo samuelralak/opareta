@@ -7,7 +7,6 @@ import { join } from 'path';
 import { UsersModule } from '../users';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { AuthGuard } from './auth.guard';
 import { JwksController } from './jwks.controller';
 import { AccessToken } from './entities';
 
@@ -33,7 +32,7 @@ import { AccessToken } from './entities';
     }),
   ],
   controllers: [AuthController, JwksController],
-  providers: [AuthService, AuthGuard],
-  exports: [AuthGuard, JwtModule],
+  providers: [AuthService],
+  exports: [JwtModule],
 })
 export class AuthModule {}

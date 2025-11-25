@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -15,7 +16,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { AuthGuard } from './auth.guard';
+import { JwksAuthGuard } from '@opareta/common';
 import {
   RegisterDto,
   LoginDto,
@@ -56,7 +57,7 @@ export class AuthController {
   }
 
   @Get('verify')
-  @UseGuards(AuthGuard)
+  @UseGuards(JwksAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Verify JWT token and return payload' })
   @ApiResponse({
@@ -67,5 +68,17 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid or expired token' })
   async verify(@Request() req: { user: TokenPayloadDto }): Promise<TokenPayloadDto> {
     return req.user;
+  }
+
+  @Post('logout')
+  @UseGuards(JwksAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout and invalidate token' })
+  @ApiResponse({ status: 204, description: 'Logout successful' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async logout(@Headers('authorization') authorization: string): Promise<void> {
+    const token = authorization?.replace('Bearer ', '');
+    await this.authService.logout(token);
   }
 }

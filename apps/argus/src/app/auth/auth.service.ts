@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
+import { TokenCacheService } from '@opareta/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users';
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly tokenCacheService: TokenCacheService,
     @InjectRepository(AccessToken)
     private readonly accessTokenRepository: Repository<AccessToken>,
   ) {
@@ -73,10 +75,15 @@ export class AuthService {
 
   async logout(token: string): Promise<void> {
     const tokenHash = this.hashToken(token);
+
+    // Update database
     await this.accessTokenRepository.update(
       { token_hash: tokenHash },
       { invalidated_at: new Date() },
     );
+
+    // Write to Redis cache for cross-service invalidation
+    await this.tokenCacheService.invalidateToken(token, this.expiresIn * 1000);
   }
 
   async isTokenValid(token: string): Promise<boolean> {

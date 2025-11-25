@@ -8,12 +8,16 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
+import { TokenCacheService } from '../cache';
 
 @Injectable()
 export class JwksAuthGuard implements CanActivate {
   private readonly client: jwksClient.JwksClient;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly tokenCacheService: TokenCacheService,
+  ) {
     const jwksUri = this.configService.getOrThrow<string>('JWKS_URI');
     this.client = jwksClient({
       jwksUri,
@@ -40,6 +44,12 @@ export class JwksAuthGuard implements CanActivate {
       const publicKey = key.getPublicKey();
 
       const payload = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+
+      const isInvalidated = await this.tokenCacheService.isTokenInvalidated(token);
+      if (isInvalidated) {
+        throw new UnauthorizedException('Token has been invalidated');
+      }
+
       (request as Request & { user: unknown }).user = payload;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');

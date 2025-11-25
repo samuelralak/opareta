@@ -66,9 +66,9 @@ export class PaymentsService {
     return this.findPaymentWithLogs(payment.id);
   }
 
-  async getPaymentByReference(reference: string): Promise<Payment> {
+  async getPaymentByReference(reference: string, userId: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
-      where: { reference },
+      where: { reference, user_id: userId },
       relations: ['status_logs'],
     });
 
@@ -79,8 +79,8 @@ export class PaymentsService {
     return payment;
   }
 
-  async updatePaymentStatus(reference: string, input: UpdatePaymentStatusInput): Promise<Payment> {
-    const payment = await this.getPaymentByReference(reference);
+  async updatePaymentStatus(reference: string, userId: string, input: UpdatePaymentStatusInput): Promise<Payment> {
+    const payment = await this.getPaymentByReference(reference, userId);
     await this.transitionStatus(payment, input.status, 'ADMIN', input.reason);
     return this.findPaymentWithLogs(payment.id);
   }

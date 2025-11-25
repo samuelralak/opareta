@@ -30,8 +30,11 @@ export class PaymentsController {
   @ApiResponse({ status: 200, description: 'Payment found' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getPayment(@Param('reference') reference: string) {
-    return this.paymentsService.getPaymentByReference(reference);
+  async getPayment(
+    @CurrentUser() user: JwtPayload,
+    @Param('reference') reference: string
+  ) {
+    return this.paymentsService.getPaymentByReference(reference, user.sub);
   }
 
   @Patch(':reference/status')
@@ -43,9 +46,10 @@ export class PaymentsController {
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async updatePaymentStatus(
+    @CurrentUser() user: JwtPayload,
     @Param('reference') reference: string,
     @Body() updateStatusDto: UpdatePaymentStatusDto
   ) {
-    return this.paymentsService.updatePaymentStatus(reference, updateStatusDto);
+    return this.paymentsService.updatePaymentStatus(reference, user.sub, updateStatusDto);
   }
 }

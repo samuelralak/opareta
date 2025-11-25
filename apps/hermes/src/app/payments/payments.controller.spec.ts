@@ -102,9 +102,9 @@ describe('PaymentsController', () => {
     it('should return a payment when found', async () => {
       paymentsService.getPaymentByReference.mockResolvedValue(mockPayment);
 
-      const result = await controller.getPayment('PAY-ABC12345');
+      const result = await controller.getPayment(mockUser, 'PAY-ABC12345');
 
-      expect(paymentsService.getPaymentByReference).toHaveBeenCalledWith('PAY-ABC12345');
+      expect(paymentsService.getPaymentByReference).toHaveBeenCalledWith('PAY-ABC12345', mockUser.sub);
       expect(result).toEqual(mockPayment);
     });
 
@@ -113,7 +113,7 @@ describe('PaymentsController', () => {
         new NotFoundException('Payment with reference PAY-NOTFOUND not found')
       );
 
-      await expect(controller.getPayment('PAY-NOTFOUND')).rejects.toThrow(
+      await expect(controller.getPayment(mockUser, 'PAY-NOTFOUND')).rejects.toThrow(
         NotFoundException
       );
     });
@@ -129,10 +129,11 @@ describe('PaymentsController', () => {
       const updatedPayment = { ...mockPayment, status: PaymentStatus.SUCCESS };
       paymentsService.updatePaymentStatus.mockResolvedValue(updatedPayment);
 
-      const result = await controller.updatePaymentStatus('PAY-ABC12345', updateStatusDto);
+      const result = await controller.updatePaymentStatus(mockUser, 'PAY-ABC12345', updateStatusDto);
 
       expect(paymentsService.updatePaymentStatus).toHaveBeenCalledWith(
         'PAY-ABC12345',
+        mockUser.sub,
         updateStatusDto
       );
       expect(result.status).toBe(PaymentStatus.SUCCESS);
@@ -144,7 +145,7 @@ describe('PaymentsController', () => {
       );
 
       await expect(
-        controller.updatePaymentStatus('PAY-ABC12345', {
+        controller.updatePaymentStatus(mockUser, 'PAY-ABC12345', {
           status: PaymentStatus.PENDING,
         })
       ).rejects.toThrow(BadRequestException);
@@ -156,7 +157,7 @@ describe('PaymentsController', () => {
       );
 
       await expect(
-        controller.updatePaymentStatus('PAY-NOTFOUND', updateStatusDto)
+        controller.updatePaymentStatus(mockUser, 'PAY-NOTFOUND', updateStatusDto)
       ).rejects.toThrow(NotFoundException);
     });
   });

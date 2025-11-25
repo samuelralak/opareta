@@ -134,10 +134,10 @@ describe('PaymentsService', () => {
       const payment = { ...mockPayment, status_logs: [] };
       paymentRepository.findOne.mockResolvedValue(payment);
 
-      const result = await service.getPaymentByReference('PAY-ABC12345');
+      const result = await service.getPaymentByReference('PAY-ABC12345', 'user-uuid-123');
 
       expect(paymentRepository.findOne).toHaveBeenCalledWith({
-        where: { reference: 'PAY-ABC12345' },
+        where: { reference: 'PAY-ABC12345', user_id: 'user-uuid-123' },
         relations: ['status_logs'],
       });
       expect(result).toEqual(payment);
@@ -146,10 +146,10 @@ describe('PaymentsService', () => {
     it('should throw NotFoundException when payment is not found', async () => {
       paymentRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getPaymentByReference('PAY-NOTFOUND')).rejects.toThrow(
+      await expect(service.getPaymentByReference('PAY-NOTFOUND', 'user-uuid-123')).rejects.toThrow(
         NotFoundException
       );
-      await expect(service.getPaymentByReference('PAY-NOTFOUND')).rejects.toThrow(
+      await expect(service.getPaymentByReference('PAY-NOTFOUND', 'user-uuid-123')).rejects.toThrow(
         'Payment with reference PAY-NOTFOUND not found'
       );
     });
@@ -166,7 +166,7 @@ describe('PaymentsService', () => {
       mockTransactionManager.save.mockResolvedValue({});
       mockTransactionManager.update.mockResolvedValue({});
 
-      const result = await service.updatePaymentStatus('PAY-ABC12345', {
+      const result = await service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', {
         status: PaymentStatus.SUCCESS,
         reason: 'Manual approval',
       });
@@ -185,7 +185,7 @@ describe('PaymentsService', () => {
       paymentRepository.findOne.mockResolvedValue(successPayment);
 
       await expect(
-        service.updatePaymentStatus('PAY-ABC12345', {
+        service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', {
           status: PaymentStatus.PENDING,
         })
       ).rejects.toThrow(BadRequestException);
@@ -196,7 +196,7 @@ describe('PaymentsService', () => {
       paymentRepository.findOne.mockResolvedValue(failedPayment);
 
       await expect(
-        service.updatePaymentStatus('PAY-ABC12345', {
+        service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', {
           status: PaymentStatus.SUCCESS,
         })
       ).rejects.toThrow(BadRequestException);
@@ -228,11 +228,11 @@ describe('PaymentsService', () => {
           mockTransactionManager.save.mockResolvedValue({});
           mockTransactionManager.update.mockResolvedValue({});
 
-          const result = await service.updatePaymentStatus('PAY-ABC12345', { status: to });
+          const result = await service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', { status: to });
           expect(result.status).toBe(to);
         } else {
           await expect(
-            service.updatePaymentStatus('PAY-ABC12345', { status: to })
+            service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', { status: to })
           ).rejects.toThrow(BadRequestException);
         }
       });
@@ -248,7 +248,7 @@ describe('PaymentsService', () => {
       mockTransactionManager.save.mockResolvedValue({});
       mockTransactionManager.update.mockResolvedValue({});
 
-      await service.updatePaymentStatus('PAY-ABC12345', {
+      await service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', {
         status: PaymentStatus.SUCCESS,
       });
 
@@ -262,7 +262,7 @@ describe('PaymentsService', () => {
       mockTransactionManager.save.mockRejectedValue(new Error('Database error'));
 
       await expect(
-        service.updatePaymentStatus('PAY-ABC12345', {
+        service.updatePaymentStatus('PAY-ABC12345', 'user-uuid-123', {
           status: PaymentStatus.SUCCESS,
         })
       ).rejects.toThrow('Database error');

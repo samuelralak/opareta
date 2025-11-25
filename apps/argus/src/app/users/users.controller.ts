@@ -28,7 +28,7 @@ export class UsersController {
     description: 'User successfully registered',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 422, description: 'Invalid input data' })
   @ApiResponse({ status: 409, description: 'User already exists' })
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.register(createUserDto);

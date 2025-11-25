@@ -7,7 +7,7 @@ import { TokenCacheService } from '@opareta/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users';
-import { RegisterDto, LoginDto, UserResponseDto, TokenResponseDto } from './dto';
+import { LoginDto, TokenResponseDto } from './dto';
 import { AccessToken } from './entities';
 
 const EXPIRATION_MAP: Record<string, number> = {
@@ -36,23 +36,6 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  async register(dto: RegisterDto): Promise<UserResponseDto> {
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    const user = await this.usersService.create({
-      phone_number: dto.phone_number,
-      email: dto.email,
-      password: hashedPassword,
-    });
-
-    return {
-      id: user.id,
-      phone_number: user.phone_number,
-      email: user.email,
-      created_at: user.created_at,
-    };
-  }
-
   async login(dto: LoginDto): Promise<TokenResponseDto> {
     const user = await this.usersService.findByPhoneNumber(dto.phone_number);
     const isValid = user && (await bcrypt.compare(dto.password, user.password));
@@ -76,13 +59,11 @@ export class AuthService {
   async logout(token: string): Promise<void> {
     const tokenHash = this.hashToken(token);
 
-    // Update database
     await this.accessTokenRepository.update(
       { token_hash: tokenHash },
       { invalidated_at: new Date() },
     );
 
-    // Write to Redis cache for cross-service invalidation
     await this.tokenCacheService.invalidateToken(token, this.expiresIn * 1000);
   }
 

@@ -35,7 +35,6 @@ describe('AuthService', () => {
         {
           provide: UsersService,
           useValue: {
-            create: jest.fn(),
             findByPhoneNumber: jest.fn(),
           },
         },
@@ -73,33 +72,6 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
     tokenCacheService = module.get(TokenCacheService);
     accessTokenRepository = module.get(getRepositoryToken(AccessToken));
-  });
-
-  describe('register', () => {
-    it('should hash password and create user', async () => {
-      const registerDto = {
-        phone_number: '+254712345678',
-        email: 'test@example.com',
-        password: 'plain-password',
-      };
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
-      usersService.create.mockResolvedValue(mockUser);
-
-      const result = await service.register(registerDto);
-
-      expect(bcrypt.hash).toHaveBeenCalledWith('plain-password', 10);
-      expect(usersService.create).toHaveBeenCalledWith({
-        phone_number: '+254712345678',
-        email: 'test@example.com',
-        password: 'hashed-password',
-      });
-      expect(result).toEqual({
-        id: mockUser.id,
-        phone_number: mockUser.phone_number,
-        email: mockUser.email,
-        created_at: mockUser.created_at,
-      });
-    });
   });
 
   describe('login', () => {

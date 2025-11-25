@@ -1,7 +1,7 @@
 import {
   Controller,
   Post,
-  Get,
+  Delete,
   Body,
   Headers,
   HttpCode,
@@ -15,34 +15,15 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { JwksAuthGuard, CurrentUser, JwtPayload } from '@opareta/common';
-import {
-  RegisterDto,
-  LoginDto,
-  UserResponseDto,
-  TokenResponseDto,
-  TokenPayloadDto,
-} from './dto';
+import { JwksAuthGuard } from '@opareta/common';
+import { LoginDto, TokenResponseDto } from './dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({
-    status: 201,
-    description: 'User successfully registered',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 409, description: 'User already exists' })
-  async register(@Body() registerDto: RegisterDto): Promise<UserResponseDto> {
-    return this.authService.register(registerDto);
-  }
-
-  @Post('login')
+  @Post()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with phone number and password' })
   @ApiResponse({
@@ -55,21 +36,7 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
-  @Get('verify')
-  @UseGuards(JwksAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Verify JWT token and return payload' })
-  @ApiResponse({
-    status: 200,
-    description: 'Token is valid',
-    type: TokenPayloadDto,
-  })
-  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
-  async verify(@CurrentUser() user: JwtPayload): Promise<JwtPayload> {
-    return user;
-  }
-
-  @Post('logout')
+  @Delete()
   @UseGuards(JwksAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()

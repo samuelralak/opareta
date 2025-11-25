@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsPhoneNumber, IsString, MinLength } from 'class-validator';
 
-export class RegisterDto {
+export class CreateUserDto {
   @ApiProperty({
     description: 'User phone number in international format',
     example: '+254712345678',

@@ -1,0 +1,127 @@
+services:
+  # PostgreSQL for Argus (Auth service)
+  postgres-argus:
+    image: postgres:16-alpine
+    container_name: opareta-postgres-argus
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: argus_secret
+      POSTGRES_DB: argus_db
+    volumes:
+      - postgres-argus-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Hermes (Payments service)
+  postgres-hermes:
+    image: postgres:16-alpine
+    container_name: opareta-postgres-hermes
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_secret
+      POSTGRES_DB: hermes_db
+    volumes:
+      - postgres-hermes-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes -d hermes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for token caching
+  redis:
+    image: redis:7-alpine
+    container_name: opareta-redis
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Argus - Authentication service
+  argus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP: argus
+    container_name: opareta-argus
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres-argus
+      DB_PORT: 5432
+      DB_USERNAME: argus
+      DB_PASSWORD: argus_secret
+      DB_NAME: argus_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_EXPIRATION_SECONDS: 7200
+      JWKS_URI: http://argus:3000/api/.well-known/jwks.json
+    volumes:
+      - jwt-keys:/app/keys
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres-argus:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/.well-known/jwks.json"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # Hermes - Payments service
+  hermes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP: hermes
+    container_name: opareta-hermes
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres-hermes
+      DB_PORT: 5432
+      DB_USERNAME: hermes
+      DB_PASSWORD: hermes_secret
+      DB_NAME: hermes_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWKS_URI: http://argus:3000/api/.well-known/jwks.json
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres-hermes:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      argus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/docs"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  postgres-argus-data:
+  postgres-hermes-data:
+  redis-data:
+  jwt-keys:

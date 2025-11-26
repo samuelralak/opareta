@@ -27,7 +27,7 @@ export class UsersService {
       id: user.id,
       phone_number: user.phone_number,
       email: user.email,
-      created_at: user.created_at,
+      created_at: user.created_at.toISOString(),
     };
   }
 
@@ -44,7 +44,7 @@ export class UsersService {
       id: user.id,
       phone_number: user.phone_number,
       email: user.email,
-      created_at: user.created_at,
+      created_at: user.created_at.toISOString(),
     };
   }
 }

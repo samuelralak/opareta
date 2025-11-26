@@ -29,6 +29,7 @@
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
     "@swc/jest": "~0.2.38",
+    "swc-loader": "^0.2.6",
     "@types/bcrypt": "^6.0.0",
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -55,6 +56,8 @@
     "libs/*"
   ],
   "dependencies": {
+    "jwks-rsa": "^3.2.0",
+    "jsonwebtoken": "^9.0.2",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.2",

@@ -23,7 +23,7 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "dist/libs/dummy-provider",
+          "outputPath": "libs/dummy-provider/dist",
           "tsConfig": "libs/dummy-provider/tsconfig.lib.json",
           "packageJson": "libs/dummy-provider/package.json",
           "main": "libs/dummy-provider/src/index.ts",

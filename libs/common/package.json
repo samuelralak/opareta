@@ -23,7 +23,7 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "dist/libs/common",
+          "outputPath": "libs/common/dist",
           "tsConfig": "libs/common/tsconfig.lib.json",
           "packageJson": "libs/common/package.json",
           "main": "libs/common/src/index.ts",

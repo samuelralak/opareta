@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisCacheModule } from '@opareta/common';
 import { UsersModule } from '../users';
 import { AuthService } from './auth.service';
@@ -17,20 +15,30 @@ import { AccessToken } from './entities';
     RedisCacheModule.forRoot(),
     TypeOrmModule.forFeature([AccessToken]),
     JwtModule.registerAsync({
+      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        privateKey: readFileSync(
-          join(process.cwd(), 'apps/argus/keys/private.pem'),
-        ),
-        publicKey: readFileSync(
-          join(process.cwd(), 'apps/argus/keys/public.pem'),
-        ),
-        signOptions: {
-          algorithm: 'RS256',
-          expiresIn: config.get<string>('JWT_EXPIRATION', '2h'),
-          keyid: 'argus-key-1',
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const privateKeyBase64 = config.get<string>('JWT_PRIVATE_KEY');
+        const publicKeyBase64 = config.get<string>('JWT_PUBLIC_KEY');
+
+        if (!privateKeyBase64 || !publicKeyBase64) {
+          throw new Error('JWT_PRIVATE_KEY and JWT_PUBLIC_KEY must be set');
+        }
+
+        // JWT_EXPIRATION_SECONDS: expiration in seconds (default: 7200 = 2 hours)
+        // Must be a number - string values are interpreted as milliseconds by jsonwebtoken
+        const expiresIn = Number(config.get('JWT_EXPIRATION_SECONDS')) || 7200;
+
+        return {
+          privateKey: Buffer.from(privateKeyBase64, 'base64').toString('utf8'),
+          publicKey: Buffer.from(publicKeyBase64, 'base64').toString('utf8'),
+          signOptions: {
+            algorithm: 'RS256' as const,
+            expiresIn,
+            keyid: config.get<string>('JWT_KEY_ID') ?? 'argus-key-1',
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController, JwksController],

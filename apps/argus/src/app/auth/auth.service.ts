@@ -10,12 +10,6 @@ import { UsersService } from '../users';
 import { LoginDto, TokenResponseDto } from './dto';
 import { AccessToken } from './entities';
 
-const EXPIRATION_MAP: Record<string, number> = {
-  '1h': 3600,
-  '2h': 7200,
-  '24h': 86400,
-};
-
 @Injectable()
 export class AuthService {
   private readonly expiresIn: number;
@@ -28,8 +22,8 @@ export class AuthService {
     @InjectRepository(AccessToken)
     private readonly accessTokenRepository: Repository<AccessToken>,
   ) {
-    const expiration = this.configService.get<string>('JWT_EXPIRATION', '2h');
-    this.expiresIn = EXPIRATION_MAP[expiration] ?? 7200;
+    // JWT_EXPIRATION_SECONDS: expiration in seconds (default: 7200 = 2 hours)
+    this.expiresIn = Number(this.configService.get('JWT_EXPIRATION_SECONDS')) || 7200;
   }
 
   private hashToken(token: string): string {

@@ -1,0 +1,14 @@
+C4Context
+    title System Context Diagram - Opareta Payment Platform
+
+    Person(user, "User", "A customer making payments")
+
+    System_Boundary(opareta, "Opareta Platform") {
+        System(platform, "Opareta", "Payment processing platform with authentication")
+    }
+
+    System_Ext(provider, "Payment Provider", "External mobile money/payment provider")
+
+    Rel(user, platform, "Registers, authenticates, initiates payments")
+    Rel(platform, provider, "Processes payments via API")
+    Rel(provider, platform, "Sends payment status webhooks")

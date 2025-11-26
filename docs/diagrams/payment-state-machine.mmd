@@ -1,0 +1,31 @@
+stateDiagram-v2
+    [*] --> INITIATED: Payment Created
+
+    INITIATED --> PENDING: Provider Accepts
+    INITIATED --> FAILED: Provider Rejects
+
+    PENDING --> SUCCESS: Webhook SUCCESS
+    PENDING --> FAILED: Webhook FAILED
+
+    SUCCESS --> [*]
+    FAILED --> [*]
+
+    note right of INITIATED
+        Initial state when payment
+        is created in the system
+    end note
+
+    note right of PENDING
+        Payment sent to provider
+        awaiting webhook callback
+    end note
+
+    note right of SUCCESS
+        Payment completed
+        Terminal state
+    end note
+
+    note right of FAILED
+        Payment failed
+        Terminal state
+    end note

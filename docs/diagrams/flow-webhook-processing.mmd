@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    participant Provider as Payment Provider
+    participant WC as WebhooksController
+    participant WS as PaymentWebhookService
+    participant PS as PaymentsService
+    participant DB as PostgreSQL
+
+    Provider->>+WC: POST /webhooks/payment
+    Note over Provider,WC: {webhook_id, payment_reference, status, ...}
+
+    WC->>+WS: processWebhook(payload)
+
+    WS->>+DB: SELECT webhook_event WHERE webhook_id = ?
+    DB-->>-WS: null | WebhookEvent
+
+    alt Duplicate webhook
+        WS-->>WC: 200 OK (idempotent)
+        WC-->>Provider: 200 OK
+    end
+
+    WS->>+DB: INSERT webhook_event (processed: false)
+    DB-->>-WS: WebhookEvent
+
+    WS->>+DB: SELECT payment WHERE reference = ?
+    DB-->>-WS: Payment | null
+
+    alt Payment not found
+        WS->>DB: UPDATE webhook_event (processed: false)
+        WS-->>WC: 404 Not Found
+        WC-->>Provider: 404 Not Found
+    end
+
+    WS->>+PS: transitionStatus(payment, status, "WEBHOOK", reason)
+
+    PS->>PS: isValidTransition(from, to)
+
+    alt Invalid transition
+        PS-->>WS: BadRequestException
+        WS->>DB: UPDATE webhook_event (processed: false)
+        WS-->>WC: 400 Bad Request
+        WC-->>Provider: 400 Bad Request
+    end
+
+    PS->>+DB: BEGIN TRANSACTION
+    PS->>DB: UPDATE payment status
+    PS->>DB: INSERT status_log
+    PS->>DB: COMMIT
+    DB-->>-PS: OK
+
+    PS-->>-WS: void
+
+    WS->>+DB: UPDATE webhook_event (processed: true)
+    DB-->>-WS: OK
+
+    WS-->>-WC: void
+    WC-->>-Provider: 200 OK

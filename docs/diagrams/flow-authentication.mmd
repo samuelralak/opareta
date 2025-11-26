@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant AC as AuthController
+    participant AS as AuthService
+    participant US as UsersService
+    participant JKS as JwtKeyService
+    participant TC as TokenCacheService
+    participant Redis
+
+    User->>+AC: POST /auth/login
+    Note over User,AC: {phone_number, password}
+
+    AC->>+AS: login(loginDto)
+    AS->>+US: findByPhoneNumber(phone)
+    US-->>-AS: User | null
+
+    alt User not found
+        AS-->>AC: 401 Unauthorized
+        AC-->>User: Invalid credentials
+    end
+
+    AS->>AS: bcrypt.compare(password, hash)
+
+    alt Password mismatch
+        AS-->>AC: 401 Unauthorized
+        AC-->>User: Invalid credentials
+    end
+
+    AS->>+JKS: signToken(payload)
+    Note over JKS: Sign with RSA private key
+    JKS-->>-AS: JWT token
+
+    AS->>+TC: set(userId, token, ttl)
+    TC->>+Redis: SET with expiry
+    Redis-->>-TC: OK
+    TC-->>-AS: void
+
+    AS-->>-AC: TokenResponseDto
+    AC-->>-User: 200 OK
+    Note over User,AC: {access_token, token_type, expires_in}

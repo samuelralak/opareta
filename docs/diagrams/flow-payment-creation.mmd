@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Guard as JwksAuthGuard
+    participant PC as PaymentsController
+    participant PS as PaymentsService
+    participant DP as DummyProvider
+    participant DB as PostgreSQL
+    participant Argus
+
+    User->>+Guard: POST /payments (+ Bearer token)
+
+    Guard->>+Argus: GET /.well-known/jwks.json
+    Argus-->>-Guard: JWKS (public keys)
+
+    Guard->>Guard: Verify JWT signature
+    Guard->>Guard: Check expiration
+
+    alt Token invalid
+        Guard-->>User: 401 Unauthorized
+    end
+
+    Guard->>+PC: Request (with user context)
+
+    PC->>+PS: createPayment(userId, dto)
+
+    PS->>PS: generateReference()
+    Note over PS: PAY-XXXXXXXX
+
+    PS->>+DB: BEGIN TRANSACTION
+    PS->>DB: INSERT payment (INITIATED)
+    PS->>DB: INSERT status_log
+    PS->>DB: UPDATE payment (PENDING)
+    PS->>DB: INSERT status_log
+    DB-->>-PS: Payment record
+
+    PS->>+DP: initiatePayment(request)
+    Note over DP: Async webhook scheduled
+    DP-->>-PS: {success, provider_reference}
+
+    PS->>+DB: UPDATE provider_reference
+    DB-->>-PS: OK
+
+    PS-->>-PC: Payment
+
+    PC-->>-Guard: Payment
+    Guard-->>-User: 201 Created
+    Note over User,Guard: Payment with status: PENDING

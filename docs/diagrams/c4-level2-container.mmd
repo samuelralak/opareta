@@ -1,0 +1,28 @@
+C4Container
+    title Container Diagram - Opareta Platform
+
+    Person(user, "User", "Customer")
+
+    Container_Boundary(opareta, "Opareta Platform") {
+        Container(argus, "Argus", "NestJS", "Authentication service - handles user registration, login, JWT tokens, JWKS endpoint")
+        Container(hermes, "Hermes", "NestJS", "Payment service - handles payment initiation, status tracking, webhooks")
+
+        ContainerDb(argus_db, "Argus DB", "PostgreSQL", "User credentials, accounts")
+        ContainerDb(hermes_db, "Hermes DB", "PostgreSQL", "Payments, transactions, webhook events")
+        ContainerDb(redis, "Redis", "Redis", "Token cache, session data")
+    }
+
+    System_Ext(provider, "Payment Provider", "Mobile Money API")
+
+    Rel(user, argus, "Register, Login", "HTTPS")
+    Rel(user, hermes, "Create/View Payments", "HTTPS + JWT")
+
+    Rel(argus, argus_db, "Read/Write users")
+    Rel(argus, redis, "Cache tokens")
+
+    Rel(hermes, hermes_db, "Read/Write payments")
+    Rel(hermes, redis, "Cache tokens")
+    Rel(hermes, argus, "Fetch JWKS", "HTTP")
+    Rel(hermes, provider, "Initiate payment", "HTTPS")
+
+    Rel(provider, hermes, "Payment webhooks", "HTTPS")

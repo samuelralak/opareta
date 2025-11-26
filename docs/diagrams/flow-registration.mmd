@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant AC as AuthController
+    participant AS as AuthService
+    participant US as UsersService
+    participant DB as PostgreSQL
+
+    User->>+AC: POST /auth/register
+    Note over User,AC: {phone_number, email, password}
+
+    AC->>+AS: register(createUserDto)
+    AS->>+US: register(createUserDto)
+
+    US->>US: Hash password (bcrypt)
+    US->>+DB: INSERT user
+    DB-->>-US: User record
+
+    US->>US: toResponse(user)
+    US-->>-AS: UserResponseDto
+    AS-->>-AC: UserResponseDto
+
+    AC-->>-User: 201 Created
+    Note over User,AC: {id, phone_number, email, created_at}

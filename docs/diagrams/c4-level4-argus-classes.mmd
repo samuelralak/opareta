@@ -1,0 +1,69 @@
+classDiagram
+    class AuthController {
+        -authService: AuthService
+        +register(dto: CreateUserDto): Promise~UserResponseDto~
+        +login(dto: LoginDto): Promise~TokenResponseDto~
+    }
+
+    class AuthService {
+        -usersService: UsersService
+        -jwtKeyService: JwtKeyService
+        -tokenCacheService: TokenCacheService
+        +register(dto: CreateUserDto): Promise~UserResponseDto~
+        +login(dto: LoginDto): Promise~TokenResponseDto~
+        -validateUser(phone: string, password: string): Promise~User~
+        -generateToken(user: User): Promise~string~
+    }
+
+    class UsersService {
+        -usersRepository: Repository~User~
+        +register(dto: CreateUserDto): Promise~UserResponseDto~
+        +findByPhoneNumber(phone: string): Promise~User~
+        +findById(id: string): Promise~User~
+        +toResponse(user: User): UserResponseDto
+    }
+
+    class JwtKeyService {
+        -privateKey: KeyObject
+        -publicKey: KeyObject
+        -keyId: string
+        +onModuleInit(): Promise~void~
+        +signToken(payload: JwtPayload): string
+        +getJwks(): JwksResponse
+        -loadOrGenerateKeys(): Promise~void~
+    }
+
+    class User {
+        +id: string
+        +phone_number: string
+        +email: string
+        +password: string
+        +created_at: Date
+        +updated_at: Date
+    }
+
+    class CreateUserDto {
+        +phone_number: string
+        +email: string
+        +password: string
+    }
+
+    class LoginDto {
+        +phone_number: string
+        +password: string
+    }
+
+    class UserResponseDto {
+        +id: string
+        +phone_number: string
+        +email: string
+        +created_at: string
+    }
+
+    AuthController --> AuthService : uses
+    AuthService --> UsersService : uses
+    AuthService --> JwtKeyService : uses
+    UsersService --> User : manages
+    AuthController ..> CreateUserDto : accepts
+    AuthController ..> LoginDto : accepts
+    AuthController ..> UserResponseDto : returns

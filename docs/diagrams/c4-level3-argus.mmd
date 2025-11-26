@@ -1,0 +1,28 @@
+C4Component
+    title Component Diagram - Argus (Authentication Service)
+
+    Container_Boundary(argus, "Argus") {
+        Component(auth_controller, "AuthController", "NestJS Controller", "Handles /auth/* endpoints")
+        Component(users_controller, "UsersController", "NestJS Controller", "Handles /users/* endpoints")
+        Component(jwks_controller, "JwksController", "NestJS Controller", "Serves /.well-known/jwks.json")
+
+        Component(auth_service, "AuthService", "NestJS Service", "Login logic, JWT signing")
+        Component(users_service, "UsersService", "NestJS Service", "User CRUD, password hashing")
+        Component(jwt_service, "JwtKeyService", "NestJS Service", "RSA key management, JWKS generation")
+
+        Component(user_entity, "User Entity", "TypeORM Entity", "User data model")
+    }
+
+    ContainerDb(db, "PostgreSQL", "Database")
+    ContainerDb(redis, "Redis", "Cache")
+
+    Rel(auth_controller, auth_service, "Uses")
+    Rel(users_controller, users_service, "Uses")
+    Rel(jwks_controller, jwt_service, "Uses")
+
+    Rel(auth_service, users_service, "Validates users")
+    Rel(auth_service, jwt_service, "Signs tokens")
+
+    Rel(users_service, user_entity, "Manages")
+    Rel(user_entity, db, "Persists to")
+    Rel(auth_service, redis, "Caches tokens")

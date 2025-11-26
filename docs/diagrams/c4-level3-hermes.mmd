@@ -1,0 +1,33 @@
+C4Component
+    title Component Diagram - Hermes (Payment Service)
+
+    Container_Boundary(hermes, "Hermes") {
+        Component(payments_controller, "PaymentsController", "NestJS Controller", "Handles /payments/* endpoints")
+        Component(webhooks_controller, "WebhooksController", "NestJS Controller", "Handles provider webhooks")
+
+        Component(payments_service, "PaymentsService", "NestJS Service", "Payment creation, status transitions")
+        Component(webhook_service, "PaymentWebhookService", "NestJS Service", "Webhook processing, idempotency")
+
+        Component(payment_entity, "Payment Entity", "TypeORM Entity", "Payment data model")
+        Component(status_log_entity, "PaymentStatusLog", "TypeORM Entity", "Audit trail for status changes")
+        Component(webhook_entity, "WebhookEvent", "TypeORM Entity", "Webhook deduplication")
+
+        Component(jwks_guard, "JwksAuthGuard", "NestJS Guard", "JWT validation via JWKS")
+    }
+
+    ContainerDb(db, "PostgreSQL", "Database")
+    Container_Ext(argus, "Argus", "Auth Service")
+    System_Ext(provider, "Payment Provider", "External API")
+
+    Rel(payments_controller, payments_service, "Uses")
+    Rel(payments_controller, jwks_guard, "Protected by")
+    Rel(webhooks_controller, webhook_service, "Uses")
+
+    Rel(payments_service, payment_entity, "Manages")
+    Rel(payments_service, status_log_entity, "Creates audit logs")
+    Rel(webhook_service, webhook_entity, "Tracks webhooks")
+    Rel(webhook_service, payments_service, "Updates payment status")
+
+    Rel(jwks_guard, argus, "Fetches JWKS")
+    Rel(payments_service, provider, "Initiates payments")
+    Rel(payment_entity, db, "Persists to")

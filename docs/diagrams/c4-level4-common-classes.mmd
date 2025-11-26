@@ -1,0 +1,41 @@
+classDiagram
+    class JwksAuthGuard {
+        -reflector: Reflector
+        -httpService: HttpService
+        -tokenCacheService: TokenCacheService
+        -jwksUri: string
+        +canActivate(context: ExecutionContext): Promise~boolean~
+        -extractToken(request: Request): string
+        -verifyToken(token: string): Promise~JwtPayload~
+        -fetchJwks(): Promise~JwksResponse~
+    }
+
+    class TokenCacheService {
+        -redis: Redis
+        +get(key: string): Promise~string~
+        +set(key: string, value: string, ttl: number): Promise~void~
+        +delete(key: string): Promise~void~
+    }
+
+    class HttpExceptionFilter {
+        -logger: Logger
+        +catch(exception: HttpException, host: ArgumentsHost): void
+    }
+
+    class CurrentUser {
+        <<decorator>>
+        +data: string
+        +factory(data: string, ctx: ExecutionContext): JwtPayload
+    }
+
+    class JwtPayload {
+        <<interface>>
+        +sub: string
+        +phone_number: string
+        +iat: number
+        +exp: number
+    }
+
+    JwksAuthGuard --> TokenCacheService : uses
+    JwksAuthGuard ..> JwtPayload : validates
+    CurrentUser ..> JwtPayload : extracts

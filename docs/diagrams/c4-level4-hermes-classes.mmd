@@ -1,0 +1,79 @@
+classDiagram
+    class PaymentsController {
+        -paymentsService: PaymentsService
+        +createPayment(user: JwtPayload, dto: CreatePaymentDto): Promise~Payment~
+        +getPayment(user: JwtPayload, reference: string): Promise~Payment~
+    }
+
+    class PaymentsService {
+        -paymentRepository: Repository~Payment~
+        -dataSource: DataSource
+        -dummyProvider: DummyProvider
+        +createPayment(userId: string, dto: CreatePaymentDto): Promise~Payment~
+        +getPaymentByReference(reference: string, userId: string): Promise~Payment~
+        +updatePaymentStatus(reference: string, userId: string, dto: UpdateStatusDto): Promise~Payment~
+        +transitionStatus(payment: Payment, status: PaymentStatus, actor: string, reason: string): Promise~void~
+        -generateReference(): string
+        -isValidTransition(from: PaymentStatus, to: PaymentStatus): boolean
+    }
+
+    class PaymentWebhookService {
+        -webhookEventRepository: Repository~WebhookEvent~
+        -paymentRepository: Repository~Payment~
+        -paymentsService: PaymentsService
+        +processWebhook(payload: WebhookPayload): Promise~void~
+        -isDuplicateWebhook(webhookId: string): Promise~boolean~
+    }
+
+    class Payment {
+        +id: string
+        +reference: string
+        +user_id: string
+        +amount: number
+        +currency: PaymentCurrency
+        +payment_method: PaymentMethod
+        +customer_phone: string
+        +customer_email: string
+        +status: PaymentStatus
+        +provider_reference: string
+        +provider_transaction_id: string
+        +failure_reason: string
+        +created_at: Date
+        +updated_at: Date
+        +status_logs: PaymentStatusLog[]
+    }
+
+    class PaymentStatusLog {
+        +id: string
+        +payment_id: string
+        +from_status: PaymentStatus
+        +to_status: PaymentStatus
+        +actor: string
+        +reason: string
+        +created_at: Date
+    }
+
+    class WebhookEvent {
+        +id: string
+        +webhook_id: string
+        +payment_reference: string
+        +payload: object
+        +processed: boolean
+        +received_at: Date
+    }
+
+    class PaymentStatus {
+        <<enumeration>>
+        INITIATED
+        PENDING
+        SUCCESS
+        FAILED
+    }
+
+    PaymentsController --> PaymentsService : uses
+    PaymentsService --> Payment : manages
+    PaymentsService --> PaymentStatusLog : creates
+    PaymentWebhookService --> WebhookEvent : manages
+    PaymentWebhookService --> PaymentsService : uses
+    Payment --> PaymentStatusLog : has many
+    Payment --> PaymentStatus : has status

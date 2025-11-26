@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Guard as JwksAuthGuard
+    participant Cache as TokenCacheService
+    participant Redis
+    participant Argus as Argus JWKS Endpoint
+
+    Client->>+Guard: Request with Bearer token
+
+    Guard->>Guard: Extract token from header
+
+    Guard->>+Cache: get("jwks")
+    Cache->>+Redis: GET jwks
+    Redis-->>-Cache: null | cached_jwks
+
+    alt JWKS not cached
+        Cache-->>Guard: null
+        Guard->>+Argus: GET /.well-known/jwks.json
+        Argus-->>-Guard: {keys: [{kty, n, e, kid, ...}]}
+
+        Guard->>+Cache: set("jwks", jwks, 3600)
+        Cache->>+Redis: SET jwks EX 3600
+        Redis-->>-Cache: OK
+        Cache-->>-Guard: void
+    else JWKS cached
+        Cache-->>Guard: cached_jwks
+    end
+
+    Guard->>Guard: Find key by kid
+    Guard->>Guard: Build RSA public key
+    Guard->>Guard: jwt.verify(token, publicKey)
+
+    alt Verification fails
+        Guard-->>Client: 401 Unauthorized
+    end
+
+    Guard->>Guard: Check token expiration
+
+    alt Token expired
+        Guard-->>Client: 401 Unauthorized
+    end
+
+    Guard->>Guard: Attach user to request
+    Guard-->>-Client: Continue to controller

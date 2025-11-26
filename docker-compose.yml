@@ -120,6 +120,73 @@ services:
       start_period: 30s
       retries: 3
 
+  # =============================================================================
+  # Test services (activated with --profile test)
+  # =============================================================================
+
+  # Run all tests
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: opareta-test
+    environment:
+      NODE_ENV: test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_USERNAME: test
+      DB_PASSWORD: test_secret
+      DB_NAME: test_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Test database (separate from prod)
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:16-alpine
+    container_name: opareta-postgres-test
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test_secret
+      POSTGRES_DB: test_db
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d test_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Run tests for a specific project (pass PROJECT env var)
+  test-project:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: opareta-test-project
+    environment:
+      NODE_ENV: test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_USERNAME: test
+      DB_PASSWORD: test_secret
+      DB_NAME: test_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["npx", "nx", "test"]
+    # Pass PROJECT as command: docker compose --profile test run test-project argus
+
 volumes:
   postgres-argus-data:
   postgres-hermes-data:

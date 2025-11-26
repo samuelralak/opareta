@@ -11,13 +11,14 @@ describe('UsersService', () => {
   let service: UsersService;
   let usersRepository: jest.Mocked<Repository<User>>;
 
+  const mockDate = new Date('2025-01-01T00:00:00.000Z');
   const mockUser = {
     id: 'user-uuid',
     phone_number: '+254712345678',
     email: 'test@example.com',
     password: 'hashed-password',
-    created_at: new Date(),
-    updated_at: new Date(),
+    created_at: mockDate,
+    updated_at: mockDate,
   };
 
   beforeEach(async () => {
@@ -62,7 +63,7 @@ describe('UsersService', () => {
         id: mockUser.id,
         phone_number: mockUser.phone_number,
         email: mockUser.email,
-        created_at: mockUser.created_at,
+        created_at: mockDate.toISOString(),
       });
     });
   });
@@ -109,7 +110,7 @@ describe('UsersService', () => {
         id: mockUser.id,
         phone_number: mockUser.phone_number,
         email: mockUser.email,
-        created_at: mockUser.created_at,
+        created_at: mockDate.toISOString(),
       });
     });
   });

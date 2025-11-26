@@ -1,0 +1,28 @@
+# Dockerfile for running tests
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install build dependencies for native modules (bcrypt)
+RUN apk add --no-cache python3 make g++
+
+# Copy all package.json files first for workspace setup
+COPY package.json package-lock.json ./
+COPY libs/common/package.json ./libs/common/
+COPY libs/dummy-provider/package.json ./libs/dummy-provider/
+COPY apps/argus/package.json ./apps/argus/
+COPY apps/hermes/package.json ./apps/hermes/
+
+# Install all dependencies
+RUN npm ci
+
+# Copy source files
+COPY nx.json tsconfig.base.json eslint.config.mjs jest.preset.js ./
+COPY libs/ ./libs/
+COPY apps/ ./apps/
+
+# Disable NX daemon for containerized environment
+ENV NX_DAEMON=false
+
+# Default command runs all tests
+CMD ["npx", "nx", "run-many", "-t", "test", "--parallel=2"]

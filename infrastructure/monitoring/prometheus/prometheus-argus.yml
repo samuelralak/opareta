@@ -1,0 +1,44 @@
+# Prometheus Configuration for Argus Server
+# ==========================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'opareta-prod'
+    server: 'argus'
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Argus (Auth Service) - disabled until metrics endpoint is implemented
+  # - job_name: 'argus'
+  #   metrics_path: '/api/metrics'
+  #   static_configs:
+  #     - targets:
+  #         - 'argus-1:3000'
+  #         - 'argus-2:3000'
+  #       labels:
+  #         service: 'argus'
+  #         app: 'auth'
+
+  # Hermes (Payments Service) - disabled until metrics endpoint is implemented
+  # - job_name: 'hermes'
+  #   metrics_path: '/api/metrics'
+  #   static_configs:
+  #     - targets:
+  #         - 'hermes.weekone.app:443'
+  #       labels:
+  #         service: 'hermes'
+  #         app: 'payments'
+  #   scheme: https
+  #   tls_config:
+  #     insecure_skip_verify: false

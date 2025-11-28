@@ -1,0 +1,115 @@
+# Hermes Server Docker Compose Configuration
+# ===========================================
+# Runs on: Droplet 02 (Payments Server)
+#
+# Services:
+#   - Hermes (Payments Service) - 2 instances
+#   - PostgreSQL for Hermes
+#
+# External Dependencies:
+#   - Argus server for JWKS (JWT validation)
+#   - Redis on Argus server (optional caching)
+#
+
+services:
+  # =============================================================================
+  # Database
+  # =============================================================================
+  postgres-hermes:
+    image: postgres:16-alpine
+    container_name: opareta-postgres-hermes
+    restart: always
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: ${HERMES_DB_PASSWORD:-hermes_secret}
+      POSTGRES_DB: hermes_db
+    volumes:
+      - postgres-hermes-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes -d hermes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =============================================================================
+  # Hermes (Payments Service) - 2 Instances
+  # =============================================================================
+  hermes-1:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}hermes:${IMAGE_TAG:-latest}
+    container_name: opareta-hermes-1
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres-hermes
+      DB_PORT: 5432
+      DB_USERNAME: hermes
+      DB_PASSWORD: ${HERMES_DB_PASSWORD:-hermes_secret}
+      DB_NAME: hermes_db
+      REDIS_HOST: ${ARGUS_SERVER_IP}
+      REDIS_PORT: 6379
+      JWKS_URI: https://argus.weekone.app/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      postgres-hermes:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3001 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  hermes-2:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}hermes:${IMAGE_TAG:-latest}
+    container_name: opareta-hermes-2
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres-hermes
+      DB_PORT: 5432
+      DB_USERNAME: hermes
+      DB_PASSWORD: ${HERMES_DB_PASSWORD:-hermes_secret}
+      DB_NAME: hermes_db
+      REDIS_HOST: ${ARGUS_SERVER_IP}
+      REDIS_PORT: 6379
+      JWKS_URI: https://argus.weekone.app/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3002:3001"
+    depends_on:
+      postgres-hermes:
+        condition: service_healthy
+      hermes-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3001 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+volumes:
+  postgres-hermes-data:
+    name: opareta-postgres-hermes-data

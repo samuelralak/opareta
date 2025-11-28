@@ -1,0 +1,181 @@
+# Prometheus Alert Rules for Opareta
+# ===================================
+#
+# Alert categories:
+#   - Service Health
+#   - Error Rates
+#   - System Resources
+#
+
+groups:
+  # =============================================================================
+  # Service Health Alerts
+  # =============================================================================
+  - name: service_health
+    rules:
+      # Service instance down for more than 1 minute
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} instance {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      # All instances of a service are down
+      - alert: ServiceCompletelyDown
+        expr: count(up{job=~"argus|hermes"} == 1) by (job) == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is completely down"
+          description: "All instances of {{ $labels.job }} are down. Immediate action required!"
+
+      # Service has only one healthy instance (HA degraded)
+      - alert: ServiceHADegraded
+        expr: count(up{job=~"argus|hermes"} == 1) by (job) == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service {{ $labels.job }} HA is degraded"
+          description: "{{ $labels.job }} has only 1 healthy instance. High availability is compromised."
+
+  # =============================================================================
+  # Error Rate Alerts
+  # =============================================================================
+  - name: error_rates
+    rules:
+      # High HTTP error rate (5xx errors > 5% for 5 minutes)
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (job, instance)
+            /
+            sum(rate(http_requests_total[5m])) by (job, instance)
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.job }} instance {{ $labels.instance }}"
+          description: "{{ $labels.job }} instance {{ $labels.instance }} has {{ $value | printf \"%.2f\" }}% error rate (threshold: 5%)."
+
+      # Critical error rate (5xx errors > 20% for 2 minutes)
+      - alert: CriticalErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[2m])) by (job, instance)
+            /
+            sum(rate(http_requests_total[2m])) by (job, instance)
+          ) * 100 > 20
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical error rate on {{ $labels.job }} instance {{ $labels.instance }}"
+          description: "{{ $labels.job }} instance {{ $labels.instance }} has {{ $value | printf \"%.2f\" }}% error rate. Immediate investigation required!"
+
+      # High latency (p99 > 2 seconds)
+      - alert: HighLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "{{ $labels.job }} p99 latency is {{ $value | printf \"%.2f\" }}s (threshold: 2s)."
+
+  # =============================================================================
+  # System Resource Alerts
+  # =============================================================================
+  - name: system_resources
+    rules:
+      # Low disk space (< 20% free)
+      - alert: LowDiskSpace
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype=~"ext4|xfs"}
+            /
+            node_filesystem_size_bytes{fstype=~"ext4|xfs"}
+          ) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} has only {{ $value | printf \"%.1f\" }}% disk space remaining on {{ $labels.mountpoint }}."
+
+      # Critical disk space (< 10% free)
+      - alert: CriticalDiskSpace
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype=~"ext4|xfs"}
+            /
+            node_filesystem_size_bytes{fstype=~"ext4|xfs"}
+          ) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} has only {{ $value | printf \"%.1f\" }}% disk space remaining. Immediate action required!"
+
+      # High memory usage (> 90%)
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} memory usage is {{ $value | printf \"%.1f\" }}%."
+
+      # High CPU usage (> 90%)
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} CPU usage is {{ $value | printf \"%.1f\" }}%."
+
+  # =============================================================================
+  # Database Alerts
+  # =============================================================================
+  - name: database
+    rules:
+      # PostgreSQL connection pool exhaustion
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} has {{ $value }} active connections."
+
+  # =============================================================================
+  # Payment-Specific Alerts (Hermes)
+  # =============================================================================
+  - name: payments
+    rules:
+      # Payment failure rate
+      - alert: HighPaymentFailureRate
+        expr: |
+          (
+            sum(rate(payment_transactions_total{status="failed"}[10m]))
+            /
+            sum(rate(payment_transactions_total[10m]))
+          ) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is {{ $value | printf \"%.2f\" }}% (threshold: 10%)."

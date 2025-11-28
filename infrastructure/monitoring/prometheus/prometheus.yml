@@ -1,0 +1,87 @@
+# Prometheus Configuration for Opareta
+# =====================================
+#
+# Scrape targets:
+#   - Node Exporter (system metrics)
+#   - Argus instances (application metrics)
+#   - Hermes instances (application metrics)
+#   - Prometheus itself
+#
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'opareta-prod'
+    env: 'production'
+
+# Alertmanager configuration (optional - configure if using alertmanager)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Node Exporter - System metrics
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          service: 'node'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.+):\d+'
+        replacement: '${1}'
+
+  # Argus (Auth Service) - Application metrics
+  - job_name: 'argus'
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets:
+          - 'argus-1:3000'
+          - 'argus-2:3000'
+        labels:
+          service: 'argus'
+          app: 'auth'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # Hermes (Payments Service) - Application metrics
+  - job_name: 'hermes'
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets:
+          - 'hermes-1:3001'
+          - 'hermes-2:3001'
+        labels:
+          service: 'hermes'
+          app: 'payments'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # PostgreSQL metrics (if using postgres_exporter)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets:
+  #         - 'postgres-exporter-argus:9187'
+  #         - 'postgres-exporter-hermes:9187'
+
+  # Redis metrics (if using redis_exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']

@@ -1,0 +1,20 @@
+# Opareta PostgreSQL Backup Cron Configuration
+# =============================================
+#
+# Installation:
+#   sudo cp backup.cron /etc/cron.d/opareta-backup
+#   sudo chmod 644 /etc/cron.d/opareta-backup
+#
+# Or add to user crontab:
+#   crontab -e
+#   # Then paste the cron entry below
+#
+# Log output:
+#   /var/log/opareta-backup.log
+#
+
+# Daily backup at 2:00 AM
+0 2 * * * root /opt/opareta/infrastructure/backup/backup-postgres.sh >> /var/log/opareta-backup.log 2>&1
+
+# Optional: Weekly full backup on Sunday at 3:00 AM (keep for 30 days)
+# 0 3 * * 0 root BACKUP_RETENTION_DAYS=30 /opt/opareta/infrastructure/backup/backup-postgres.sh >> /var/log/opareta-backup.log 2>&1

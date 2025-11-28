@@ -1,0 +1,20 @@
+# Grafana Dashboard Provisioning
+# ==============================
+#
+# This file tells Grafana where to find dashboard JSON files
+# Place this in /etc/grafana/provisioning/dashboards/
+#
+
+apiVersion: 1
+
+providers:
+  - name: 'Opareta Dashboards'
+    orgId: 1
+    folder: 'Opareta'
+    folderUid: 'opareta'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

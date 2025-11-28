@@ -1,0 +1,212 @@
+# Argus Server Docker Compose Configuration
+# ==========================================
+# Runs on: Droplet 01 (Auth Server)
+#
+# Services:
+#   - Argus (Auth Service) - 2 instances
+#   - PostgreSQL for Argus
+#   - Redis (shared cache)
+#   - Prometheus + Grafana (monitoring)
+#
+
+services:
+  # =============================================================================
+  # Database
+  # =============================================================================
+  postgres-argus:
+    image: postgres:16-alpine
+    container_name: opareta-postgres-argus
+    restart: always
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: ${ARGUS_DB_PASSWORD:-argus_secret}
+      POSTGRES_DB: argus_db
+    volumes:
+      - postgres-argus-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =============================================================================
+  # Redis (shared cache - accessible from Hermes server)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: opareta-redis
+    restart: always
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis-data:/data
+    ports:
+      - "0.0.0.0:6379:6379"  # Exposed for Hermes server access
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # =============================================================================
+  # Argus (Auth Service) - 2 Instances
+  # =============================================================================
+  argus-1:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}argus:${IMAGE_TAG:-latest}
+    container_name: opareta-argus-1
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres-argus
+      DB_PORT: 5432
+      DB_USERNAME: argus
+      DB_PASSWORD: ${ARGUS_DB_PASSWORD:-argus_secret}
+      DB_NAME: argus_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-7200}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWKS_URI: https://argus.weekone.app/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      postgres-argus:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/.well-known/jwks.json"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  argus-2:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}argus:${IMAGE_TAG:-latest}
+    container_name: opareta-argus-2
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres-argus
+      DB_PORT: 5432
+      DB_USERNAME: argus
+      DB_PASSWORD: ${ARGUS_DB_PASSWORD:-argus_secret}
+      DB_NAME: argus_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-7200}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWKS_URI: https://argus.weekone.app/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3002:3000"
+    depends_on:
+      postgres-argus:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      argus-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/.well-known/jwks.json"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =============================================================================
+  # Monitoring Stack
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: opareta-prometheus
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ../monitoring/prometheus/prometheus-argus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: opareta-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://argus.weekone.app:3100}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "0.0.0.0:3100:3000"
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+volumes:
+  postgres-argus-data:
+    name: opareta-postgres-argus-data
+  redis-data:
+    name: opareta-redis-data
+  prometheus-data:
+    name: opareta-prometheus-data
+  grafana-data:
+    name: opareta-grafana-data

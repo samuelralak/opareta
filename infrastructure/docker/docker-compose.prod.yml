@@ -1,0 +1,338 @@
+# Production Docker Compose Configuration
+# ========================================
+#
+# This extends the base docker-compose.yml with production-ready settings:
+#   - 2 replicas of each service for high availability
+#   - Resource limits
+#   - Restart policies
+#   - Redis AOF persistence
+#   - Prometheus and Grafana monitoring
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Environment variables (create .env file):
+#   - DOCKER_REGISTRY (e.g., ghcr.io/username/)
+#   - IMAGE_TAG (e.g., latest, v1.0.0, sha-abc1234)
+#   - ARGUS_DB_PASSWORD
+#   - HERMES_DB_PASSWORD
+#   - JWT_PRIVATE_KEY
+#   - JWT_PUBLIC_KEY
+#   - GRAFANA_ADMIN_PASSWORD
+#
+# GitHub Container Registry (ghcr.io):
+#   Images are expected at:
+#   - ${DOCKER_REGISTRY}argus:${IMAGE_TAG}
+#   - ${DOCKER_REGISTRY}hermes:${IMAGE_TAG}
+#
+
+services:
+  # =============================================================================
+  # Databases
+  # =============================================================================
+
+  postgres-argus:
+    image: postgres:16-alpine
+    container_name: opareta-postgres-argus
+    restart: always
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: ${ARGUS_DB_PASSWORD:-argus_secret}
+      POSTGRES_DB: argus_db
+    volumes:
+      - postgres-argus-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  postgres-hermes:
+    image: postgres:16-alpine
+    container_name: opareta-postgres-hermes
+    restart: always
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: ${HERMES_DB_PASSWORD:-hermes_secret}
+      POSTGRES_DB: hermes_db
+    volumes:
+      - postgres-hermes-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes -d hermes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =============================================================================
+  # Redis with AOF Persistence
+  # =============================================================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: opareta-redis
+    restart: always
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # =============================================================================
+  # Argus (Auth Service) - 2 Instances
+  # =============================================================================
+
+  argus-1:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}argus:${IMAGE_TAG:-latest}
+    container_name: opareta-argus-1
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres-argus
+      DB_PORT: 5432
+      DB_USERNAME: argus
+      DB_PASSWORD: ${ARGUS_DB_PASSWORD:-argus_secret}
+      DB_NAME: argus_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-7200}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWKS_URI: http://localhost:3000/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      postgres-argus:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  argus-2:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}argus:${IMAGE_TAG:-latest}
+    container_name: opareta-argus-2
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres-argus
+      DB_PORT: 5432
+      DB_USERNAME: argus
+      DB_PASSWORD: ${ARGUS_DB_PASSWORD:-argus_secret}
+      DB_NAME: argus_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-7200}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWKS_URI: http://localhost:3000/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3002:3000"
+    depends_on:
+      postgres-argus:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      argus-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =============================================================================
+  # Hermes (Payments Service) - 2 Instances
+  # =============================================================================
+
+  hermes-1:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}hermes:${IMAGE_TAG:-latest}
+    container_name: opareta-hermes-1
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres-hermes
+      DB_PORT: 5432
+      DB_USERNAME: hermes
+      DB_PASSWORD: ${HERMES_DB_PASSWORD:-hermes_secret}
+      DB_NAME: hermes_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWKS_URI: http://argus-1:3000/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3003:3001"
+    depends_on:
+      postgres-hermes:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      argus-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  hermes-2:
+    image: ${DOCKER_REGISTRY:-ghcr.io/}hermes:${IMAGE_TAG:-latest}
+    container_name: opareta-hermes-2
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres-hermes
+      DB_PORT: 5432
+      DB_USERNAME: hermes
+      DB_PASSWORD: ${HERMES_DB_PASSWORD:-hermes_secret}
+      DB_NAME: hermes_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWKS_URI: http://argus-1:3000/api/.well-known/jwks.json
+    ports:
+      - "127.0.0.1:3004:3001"
+    depends_on:
+      postgres-hermes:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      argus-1:
+        condition: service_healthy
+      hermes-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =============================================================================
+  # Monitoring Stack
+  # =============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: opareta-prometheus
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: opareta-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3100}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "127.0.0.1:3100:3000"
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+volumes:
+  postgres-argus-data:
+    name: opareta-postgres-argus-data
+  postgres-hermes-data:
+    name: opareta-postgres-hermes-data
+  redis-data:
+    name: opareta-redis-data
+  prometheus-data:
+    name: opareta-prometheus-data
+  grafana-data:
+    name: opareta-grafana-data

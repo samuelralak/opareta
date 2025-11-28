@@ -5,6 +5,7 @@ A microservices-based payment platform built with NestJS and NX monorepo archite
 ## Table of Contents
 
 - [Overview](#overview)
+- [Production Environment](#production-environment)
 - [Architecture](#architecture)
   - [System Context (C4 Level 1)](#system-context-c4-level-1)
   - [Container Diagram (C4 Level 2)](#container-diagram-c4-level-2)
@@ -23,6 +24,7 @@ A microservices-based payment platform built with NestJS and NX monorepo archite
   - [Docker Development](#docker-development)
 - [Running Tests](#running-tests)
 - [API Documentation](#api-documentation)
+- [Deployment](#deployment)
 
 ## Overview
 
@@ -30,6 +32,24 @@ Opareta is a payment processing platform consisting of two core microservices:
 
 - **Argus** - Authentication service handling user registration, login, and JWT token management
 - **Hermes** - Payment service managing payment initiation, status tracking, and provider webhooks
+
+## Production Environment
+
+The platform is deployed on DigitalOcean with the following URLs:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Argus API | https://argus.weekone.app/api | Authentication service |
+| Argus Docs | https://argus.weekone.app/api/docs | Swagger documentation |
+| Hermes API | https://hermes.weekone.app/api | Payment service |
+| Hermes Docs | https://hermes.weekone.app/api/docs | Swagger documentation |
+
+**Infrastructure:**
+
+| Server | IP | Services |
+|--------|-----|----------|
+| Argus Server | 159.223.65.64 | Argus (2 instances), PostgreSQL, Redis, Grafana, Prometheus |
+| Hermes Server | 167.71.201.8 | Hermes (2 instances), PostgreSQL, Redis |
 
 ## Architecture
 
@@ -952,6 +972,65 @@ Both services expose Swagger documentation:
 - `POST /api/payments` - Create payment (authenticated)
 - `GET /api/payments/:reference` - Get payment status (authenticated)
 - `POST /api/webhooks/payment` - Payment provider webhook
+
+## Deployment
+
+The platform uses a zero-downtime rolling deployment strategy with 2 instances per service behind nginx load balancing.
+
+### Deployment Scripts
+
+All deployment and infrastructure scripts are located in `infrastructure/`:
+
+| Script | Purpose |
+|--------|---------|
+| `deploy/deploy.sh` | Zero-downtime rolling deployment |
+| `deploy/rollback.sh` | Rollback to previous version |
+| `scripts/provision.sh` | Initial server provisioning |
+| `scripts/setup-docker.sh` | Docker installation |
+| `scripts/setup-firewall.sh` | UFW firewall configuration |
+| `scripts/setup-ssh.sh` | SSH hardening |
+| `scripts/setup-monitoring-agents.sh` | Prometheus/Grafana setup |
+| `backup/backup-postgres.sh` | Database backup |
+| `backup/restore-postgres.sh` | Database restore |
+
+### Building Docker Images
+
+```bash
+# Build for production (linux/amd64)
+docker buildx build --platform linux/amd64 --build-arg APP=argus -t ghcr.io/samuelralak/argus:latest --push .
+docker buildx build --platform linux/amd64 --build-arg APP=hermes -t ghcr.io/samuelralak/hermes:latest --push .
+```
+
+### Deploying to Production
+
+```bash
+# SSH to server and run deployment
+ssh root@159.223.65.64
+cd /opt/opareta
+./infrastructure/deploy/deploy.sh latest
+
+# Or deploy a specific version
+./infrastructure/deploy/deploy.sh v1.2.3
+```
+
+### Rolling Back
+
+```bash
+# Rollback to previous version
+./infrastructure/deploy/rollback.sh argus
+./infrastructure/deploy/rollback.sh hermes
+```
+
+### Monitoring
+
+- **Grafana:** http://159.223.65.64:3100 (accessible from server IP)
+- **Prometheus:** localhost:9090 (requires SSH tunnel)
+
+```bash
+# SSH tunnel for Prometheus access
+ssh -L 9090:localhost:9090 root@159.223.65.64
+# Then access: http://localhost:9090
+```
 
 ## License
 

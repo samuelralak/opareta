@@ -1023,8 +1023,12 @@ cd /opt/opareta
 
 ### Monitoring
 
-- **Grafana:** http://159.223.65.64:3100 (accessible from server IP)
-- **Prometheus:** localhost:9090 (requires SSH tunnel)
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Grafana | http://159.223.65.64:3100 | admin / `$GRAFANA_ADMIN_PASSWORD` |
+| Prometheus | localhost:9090 | N/A (requires SSH tunnel) |
+
+Grafana password is stored in `/opt/opareta/.env` on the Argus server.
 
 ```bash
 # SSH tunnel for Prometheus access
